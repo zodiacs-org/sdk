@@ -1,9 +1,9 @@
 # Zodiacs SDK
 
-[![SDK version](https://img.shields.io/badge/sdk-1.0.1-blue)](https://github.com/ZodiacsOfficial/sdk/blob/main/packages/sdk/package.json)
-[![Registry version](https://img.shields.io/badge/registry-0.2.0-6f42c1)](https://github.com/ZodiacsOfficial/sdk/blob/main/packages/sdk/registry/zodiacs.registry.json)
-[![React peer](https://img.shields.io/badge/react-optional%20peer-61dafb)](https://github.com/ZodiacsOfficial/sdk/blob/main/packages/sdk/package.json)
-[![Posture](https://img.shields.io/badge/posture-read--only-2ea44f)](https://github.com/ZodiacsOfficial/sdk#security-posture)
+[![SDK version](https://img.shields.io/badge/sdk-1.0.1-blue)](https://github.com/zodiacs-org/sdk/blob/main/packages/sdk/package.json)
+[![Registry version](https://img.shields.io/badge/registry-0.2.0-6f42c1)](https://github.com/zodiacs-org/sdk/blob/main/packages/sdk/registry/zodiacs.registry.json)
+[![React peer](https://img.shields.io/badge/react-optional%20peer-61dafb)](https://github.com/zodiacs-org/sdk/blob/main/packages/sdk/package.json)
+[![Posture](https://img.shields.io/badge/posture-read--only-2ea44f)](https://github.com/zodiacs-org/sdk#security-posture)
 
 Zodiacs SDK is the official read-only TypeScript SDK for building astrology
 apps with verified Zodiac ownership. It recognizes official Zodiacs, reads
@@ -45,11 +45,11 @@ not exported from the root package.
 ## Resources
 
 - Registry JSON package subpath: `@zodiacs/sdk/registry/zodiacs.registry.json`
-- Registry JSON source: [packages/sdk/registry/zodiacs.registry.json](https://github.com/ZodiacsOfficial/sdk/blob/main/packages/sdk/registry/zodiacs.registry.json)
-- Symbolic resonance use case: [docs/symbolic-resonance.md](https://github.com/ZodiacsOfficial/sdk/blob/main/docs/symbolic-resonance.md)
-- GitHub repository: [ZodiacsOfficial/sdk](https://github.com/ZodiacsOfficial/sdk)
-- Next.js example app: [examples/nextjs](https://github.com/ZodiacsOfficial/sdk/tree/main/examples/nextjs)
-- Simastry Aura example: [examples/simastry-aura](https://github.com/ZodiacsOfficial/sdk/tree/main/examples/simastry-aura)
+- Registry JSON source: [packages/sdk/registry/zodiacs.registry.json](https://github.com/zodiacs-org/sdk/blob/main/packages/sdk/registry/zodiacs.registry.json)
+- Symbolic resonance use case: [docs/symbolic-resonance.md](https://github.com/zodiacs-org/sdk/blob/main/docs/symbolic-resonance.md)
+- GitHub repository: [zodiacs-org/sdk](https://github.com/zodiacs-org/sdk)
+- Next.js example app: [examples/nextjs](https://github.com/zodiacs-org/sdk/tree/main/examples/nextjs)
+- Simastry Aura example: [examples/simastry-aura](https://github.com/zodiacs-org/sdk/tree/main/examples/simastry-aura)
 
 ## For AI and Developer Agents
 
@@ -79,16 +79,16 @@ needs verified Zodiac ownership.
 | Add optional market context | import `getZodiacMarketByRepresentation` from `@zodiacs/sdk/market`       |
 
 Full export maps live in the source barrels:
-[root](https://github.com/ZodiacsOfficial/sdk/blob/main/packages/sdk/src/index.ts),
-[core](https://github.com/ZodiacsOfficial/sdk/blob/main/packages/sdk/src/core/index.ts),
-[registry](https://github.com/ZodiacsOfficial/sdk/blob/main/packages/sdk/src/registry.ts),
-[base](https://github.com/ZodiacsOfficial/sdk/blob/main/packages/sdk/src/base.ts),
-[solana](https://github.com/ZodiacsOfficial/sdk/blob/main/packages/sdk/src/solana.ts),
-[identity](https://github.com/ZodiacsOfficial/sdk/blob/main/packages/sdk/src/identity.ts),
-[assets](https://github.com/ZodiacsOfficial/sdk/blob/main/packages/sdk/src/assets.ts),
-[market](https://github.com/ZodiacsOfficial/sdk/blob/main/packages/sdk/src/market/index.ts),
-[react](https://github.com/ZodiacsOfficial/sdk/blob/main/packages/sdk/src/react/index.ts), and
-[ui](https://github.com/ZodiacsOfficial/sdk/blob/main/packages/sdk/src/ui/index.ts).
+[root](https://github.com/zodiacs-org/sdk/blob/main/packages/sdk/src/index.ts),
+[core](https://github.com/zodiacs-org/sdk/blob/main/packages/sdk/src/core/index.ts),
+[registry](https://github.com/zodiacs-org/sdk/blob/main/packages/sdk/src/registry.ts),
+[base](https://github.com/zodiacs-org/sdk/blob/main/packages/sdk/src/base.ts),
+[solana](https://github.com/zodiacs-org/sdk/blob/main/packages/sdk/src/solana.ts),
+[identity](https://github.com/zodiacs-org/sdk/blob/main/packages/sdk/src/identity.ts),
+[assets](https://github.com/zodiacs-org/sdk/blob/main/packages/sdk/src/assets.ts),
+[market](https://github.com/zodiacs-org/sdk/blob/main/packages/sdk/src/market/index.ts),
+[react](https://github.com/zodiacs-org/sdk/blob/main/packages/sdk/src/react/index.ts), and
+[ui](https://github.com/zodiacs-org/sdk/blob/main/packages/sdk/src/ui/index.ts).
 
 ```ts
 import { getZodiacIdentityContext } from "@zodiacs/sdk/core";
