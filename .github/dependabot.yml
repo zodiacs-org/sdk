@@ -1,0 +1,32 @@
+# Weekly version updates for the pnpm workspace and for the GitHub Actions
+# the workflows use. Minor and patch updates arrive as one pull request for
+# each ecosystem; each major update arrives as its own pull request.
+#
+# The npm entry reads pnpm-workspace.yaml and the root pnpm-lock.yaml, so it
+# covers every workspace package: packages/sdk, examples/* and apps/*.
+version: 2
+updates:
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+    # Change a package.json only when a new version falls outside its range,
+    # so an update within range touches only pnpm-lock.yaml, and the
+    # dependency ranges that @zodiacs/sdk publishes change only when they
+    # must.
+    versioning-strategy: increase-if-necessary
+    groups:
+      npm-minor-patch:
+        update-types:
+          - minor
+          - patch
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    groups:
+      github-actions-minor-patch:
+        update-types:
+          - minor
+          - patch
