@@ -21,7 +21,7 @@
     "@zodiacs/sdk": "workspace:^",
     "astronomy-engine": "^2.1.19",
     "next": "^15.0.4",
-    "ox": "^0.9.6",
+    "ox": "^1.8.1",
     "react": "^19.2.7",
     "react-dom": "^19.2.7",
     "viem": "^2.45.0",
