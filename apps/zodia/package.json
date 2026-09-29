@@ -10,7 +10,7 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "@anthropic-ai/sdk": "^0.104.1",
+    "@anthropic-ai/sdk": "^0.128.0",
     "@coinbase/onchainkit": "^1.1.2",
     "@farcaster/miniapp-node": "^0.2.0",
     "@farcaster/miniapp-sdk": "^0.3.0",
