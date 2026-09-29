@@ -1,0 +1,36 @@
+# version and date-released name the latest release published to npm:
+# 1.0.1, published on 7 June 2026 from the tag v1.0.1. Update both when a
+# new version is published. No DOI has been minted, so doi is left out.
+cff-version: 1.2.0
+message: "If you use this software, please cite it as below, with the version or commit you used."
+type: software
+title: "Zodiacs SDK (@zodiacs/sdk)"
+abstract: >-
+  Zodiacs SDK is the official read-only TypeScript SDK for building astrology
+  apps with verified Zodiac ownership. It recognizes official Zodiacs, reads
+  public ownership, computes identity context, and gives astrology apps a
+  factual ownership layer for shelves, receipts, profiles, Aura pages, and AI
+  astrology context. Its registry models the twelve signs as one canonical
+  asset universe: one native Solana SPL mint and one official bridged Base
+  ERC-20 representation per sign, with provenance from every Base
+  representation back to its Solana origin.
+authors:
+  - name: "Zodiacs.org"
+    website: "https://zodiacs.org"
+repository-code: "https://github.com/zodiacs-org/sdk"
+url: "https://zodiacs.org/sdk/"
+license: MIT
+version: "1.0.1"
+date-released: "2026-06-07"
+keywords:
+  - astrology
+  - zodiac
+  - canonical registry
+  - verified ownership
+  - read-only
+  - Solana
+  - Base
+  - bridged assets
+  - symbolic identity
+  - React
+  - TypeScript

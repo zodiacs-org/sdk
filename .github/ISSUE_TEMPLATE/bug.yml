@@ -1,0 +1,56 @@
+name: Bug
+description: Any other problem, such as installing or importing the package, its types or subpath exports, the React hooks or UI components, the examples, the build, or a statement in the documentation.
+title: "Bug: "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Issues here are public. Never post a private key or seed phrase (the SDK never asks for one), or an API key, such as one in an RPC URL or an environment file. Include a wallet address only if you are content to publish it.
+
+        A value the SDK returns that looks wrong has its own form, "Wrong result". For a security problem, follow SECURITY.md.
+  - type: dropdown
+    id: area
+    attributes:
+      label: Where the problem is
+      options:
+        - The package, @zodiacs/sdk (packages/sdk)
+        - An example (examples/)
+        - An app (apps/)
+        - The documentation (README.md, docs/)
+        - The build, tests or CI
+    validations:
+      required: true
+  - type: textarea
+    id: happened
+    attributes:
+      label: What happened
+      description: What you did and what happened, with any error message in full.
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: What you expected
+      description: For a statement in the documentation, what you believe is correct and your source.
+    validations:
+      required: true
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: How to reproduce it
+      description: The smallest code or command that shows the problem.
+  - type: input
+    id: version
+    attributes:
+      label: SDK version or commit
+      description: The `@zodiacs/sdk` version you installed, or the commit you checked out.
+      placeholder: "1.0.1"
+    validations:
+      required: true
+  - type: input
+    id: environment
+    attributes:
+      label: Environment
+      description: Node.js or browser version, package manager, bundler or framework, TypeScript `moduleResolution` and operating system, where they matter.
+      placeholder: "Node.js 20, pnpm 9.15.0, Next.js 15, moduleResolution Bundler, Linux"

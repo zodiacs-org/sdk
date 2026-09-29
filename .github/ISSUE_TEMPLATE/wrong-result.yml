@@ -1,0 +1,60 @@
+name: Wrong result
+description: A value this SDK returns that looks wrong, such as whether an address is official, a representation or its provenance, sign metadata, an ownership read, identity context, a season, or a formatted amount.
+title: "Wrong result: "
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Issues here are public. Never post a private key or seed phrase (the SDK never asks for one), and remove any API key from an RPC URL. A wallet address you post can be linked to your GitHub account, so where you can, show the problem with an address you are content to publish. If it only shows with one you would rather keep private, email admin@zodiacs.org instead.
+
+        For a security problem, follow SECURITY.md.
+  - type: input
+    id: version
+    attributes:
+      label: SDK version
+      description: The installed `@zodiacs/sdk` version, from your lockfile or `node_modules/@zodiacs/sdk/package.json`, or the commit if you built it yourself. If the value comes from registry data, add the registry version that `getRegistryVersion()` returns.
+      placeholder: "1.0.1, registry 0.2.0"
+    validations:
+      required: true
+  - type: textarea
+    id: call
+    attributes:
+      label: The call and its input
+      description: The import path and function you called, with its exact arguments and options. For an ownership read, say which RPC provider or client you used, and for Base any `blockNumber` or `blockTag`.
+      placeholder: |
+        import { getBaseZodiacsOwnership } from "@zodiacs/sdk/base";
+        await getBaseZodiacsOwnership(publicClient, "0x1111111111111111111111111111111111111111", { blockTag: "safe" });
+      render: typescript
+    validations:
+      required: true
+  - type: textarea
+    id: output
+    attributes:
+      label: What it returned
+      description: The value the SDK returned, at least the part that looks wrong, or the error it threw with its message. For an ownership read, include `heldSigns`, `confirmedAbsentSigns`, `unavailableSigns` and `warnings`.
+      render: json
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected value and its source
+      description: The value you expected and where it comes from, such as the published Zodiacs.org registry, a block explorer or an RPC response at a stated block or slot, on-chain token metadata, or a statement in this repository's documentation. Balances change, so say at which block, slot or time you read yours.
+    validations:
+      required: true
+  - type: input
+    id: runtime
+    attributes:
+      label: Runtime
+      description: Node.js version, or browser and version, and for Base reads the `viem` version.
+      placeholder: "Node.js 20 on Linux, viem 2.45.0"
+  - type: dropdown
+    id: addresses
+    attributes:
+      label: Addresses in this report
+      options:
+        - Only official Zodiacs addresses from the registry
+        - A wallet address I am content to make public
+        - No addresses
+    validations:
+      required: true

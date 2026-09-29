@@ -2,6 +2,8 @@
 
 Keep SDK core read-only and app-neutral.
 
+Everyone taking part follows the [code of conduct](CODE_OF_CONDUCT.md).
+
 Before opening a change:
 
 ```sh
