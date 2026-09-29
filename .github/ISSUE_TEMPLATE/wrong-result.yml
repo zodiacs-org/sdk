@@ -1,5 +1,5 @@
 name: Wrong result
-description: A value this SDK returns that looks wrong, such as whether an address is official, a representation or its provenance, sign metadata, an ownership read, identity context, a season, or a formatted amount.
+description: A value this SDK returns that looks wrong, such as an official address it does not recognize, sign metadata, an ownership read, identity context, a season, or a formatted amount.
 title: "Wrong result: "
 body:
   - type: markdown
@@ -7,7 +7,7 @@ body:
       value: |
         Issues here are public. Never post a private key or seed phrase (the SDK never asks for one), and remove any API key from an RPC URL. A wallet address you post can be linked to your GitHub account, so where you can, show the problem with an address you are content to publish. If it only shows with one you would rather keep private, email admin@zodiacs.org instead.
 
-        For a security problem, follow SECURITY.md.
+        Security problems go through SECURITY.md, not an issue. They include an address the SDK treats as official, or matches to the wrong sign, chain or origin, when the published registry says otherwise.
   - type: input
     id: version
     attributes:

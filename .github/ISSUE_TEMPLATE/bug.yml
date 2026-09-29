@@ -8,7 +8,7 @@ body:
       value: |
         Issues here are public. Never post a private key or seed phrase (the SDK never asks for one), or an API key, such as one in an RPC URL or an environment file. Include a wallet address only if you are content to publish it.
 
-        A value the SDK returns that looks wrong has its own form, "Wrong result". For a security problem, follow SECURITY.md.
+        A value the SDK returns that looks wrong has its own form, "Wrong result". Security problems go through SECURITY.md, not an issue.
   - type: dropdown
     id: area
     attributes:

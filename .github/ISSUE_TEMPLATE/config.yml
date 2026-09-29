@@ -2,4 +2,4 @@ blank_issues_enabled: false
 contact_links:
   - name: A security problem
     url: https://github.com/zodiacs-org/sdk/blob/main/SECURITY.md
-    about: SECURITY.md describes how to report it.
+    about: Report it privately, as SECURITY.md describes, not in a public issue.
