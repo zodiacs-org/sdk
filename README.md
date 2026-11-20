@@ -54,6 +54,7 @@ needs verified Zodiac ownership.
 
 ```sh
 pnpm add @zodiacs/sdk
+# or: npm install @zodiacs/sdk
 ```
 
 For Base read-only balance helpers, the SDK uses `viem` public clients. Solana
@@ -249,6 +250,7 @@ when `maximumFractionDigits` is set unless `roundingMode: "round"` is passed.
 ```ts
 import { getCrossChainZodiacsOwnership, getUnifiedZodiacShelf } from "@zodiacs/sdk";
 
+// `publicClient` is the viem client created under "Read Base Holdings" above.
 const ownershipByChain = await getCrossChainZodiacsOwnership({
   solana: {
     connection: "https://api.mainnet-beta.solana.com",
@@ -286,6 +288,8 @@ import {
   getZodiacIdentityContext
 } from "@zodiacs/sdk/identity";
 
+// `ownership` is the result of getSolanaZodiacsOwnership or getBaseZodiacsOwnership
+// above; createMockOwnership from "@zodiacs/sdk/testing" gives one with no network.
 const season = getCurrentZodiacSeason(new Date("2026-03-22T00:00:00.000Z"));
 const context = getZodiacIdentityContext(ownership, {
   date: new Date("2026-03-22T00:00:00.000Z"),
