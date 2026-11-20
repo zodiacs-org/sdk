@@ -34,7 +34,7 @@ packages/sdk/registry/zodiacs.registry.json
 
 - Registry JSON package subpath: `@zodiacs/sdk/registry/zodiacs.registry.json`
 - Registry JSON source: [packages/sdk/registry/zodiacs.registry.json](packages/sdk/registry/zodiacs.registry.json)
-- GitHub repository: [ZodiacsOfficial/sdk](https://github.com/ZodiacsOfficial/sdk)
+- GitHub repository: [zodiacs-org/sdk](https://github.com/zodiacs-org/sdk)
 - Next.js example app: [examples/nextjs](examples/nextjs)
 - Simastry Aura example: [examples/simastry-aura](examples/simastry-aura)
 
