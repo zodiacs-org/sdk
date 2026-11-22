@@ -1,7 +1,11 @@
 import { erc20Abi, getAddress, isAddress } from "viem";
-import { PartialOwnershipReadError } from "./errors.js";
+import { PartialOwnershipReadError, UnsupportedChainError } from "./errors.js";
 import { formatTokenAmount } from "./format.js";
-import { getAllBaseBridgedZodiacs, getBaseZodiacRepresentation } from "./official-registry.js";
+import {
+  BASE_CHAIN_ID,
+  getAllBaseBridgedZodiacs,
+  getBaseZodiacRepresentation
+} from "./official-registry.js";
 import type {
   BaseZodiacBalance,
   BaseZodiacsHolding,
@@ -23,9 +27,19 @@ export interface BaseZodiacsReadOptions {
   readonly onPartialFailure?: "throw" | "warn" | "ignore";
 }
 
+type BaseReadBlock = Pick<BaseZodiacsReadOptions, "blockNumber" | "blockTag">;
+type BaseContract = { readonly address: `0x${string}`; readonly abi: typeof erc20Abi } & (
+  | { readonly functionName: "decimals" }
+  | { readonly functionName: "balanceOf"; readonly args: readonly [`0x${string}`] }
+);
+interface BaseBatchRead extends BaseReadBlock {
+  readonly contracts: readonly BaseContract[];
+  readonly allowFailure: true;
+}
+
 export interface ZodiacsBasePublicClient {
-  readonly readContract: (...parameters: any[]) => Promise<unknown>;
-  readonly readContracts?: (...parameters: any[]) => Promise<readonly ReadContractsResult[]>;
+  readonly readContract: (parameters: BaseContract & BaseReadBlock) => Promise<unknown>;
+  readonly readContracts?: (parameters: BaseBatchRead) => Promise<readonly ReadContractsResult[]>;
   readonly getBlockNumber?: () => Promise<bigint>;
   readonly chain?: { readonly id?: number } | undefined;
 }
@@ -34,7 +48,13 @@ type ReadContractsResult =
   | { readonly status: "success"; readonly result: unknown }
   | { readonly status: "failure"; readonly error?: unknown };
 
-const decimalsCache = new WeakMap<object, Map<string, number>>();
+interface CachedDecimals {
+  readonly block: bigint | BaseZodiacsBlockTag;
+  readonly decimals: number;
+}
+
+const UINT256_LIMIT = 1n << 256n;
+const decimalsCache = new WeakMap<object, Map<string, CachedDecimals>>();
 
 export async function getBaseZodiacBalance(
   publicClient: ZodiacsBasePublicClient,
@@ -43,6 +63,7 @@ export async function getBaseZodiacBalance(
   options: BaseZodiacsReadOptions = {}
 ): Promise<BaseZodiacBalance> {
   throwIfAborted(options.signal);
+  assertBaseChain(publicClient);
   const representation = getBaseZodiacRepresentation(sign);
   const normalizedOwner = normalizeOwnerAddress(ownerAddress);
 
@@ -70,23 +91,9 @@ export async function getBaseZodiacBalance(
       })
     ]);
     throwIfAborted(options.signal);
-    const rawAmountBigInt = BigInt(rawAmount as bigint | number | string);
-    const decimalsNumber = Number(decimals);
-    const rawAmountString = rawAmountBigInt.toString();
-
-    return {
-      sign,
-      ownerAddress: normalizedOwner,
-      representation,
-      chain: "base",
-      kind: "bridged",
-      tokenStandard: "ERC20",
-      rawAmount: rawAmountString,
-      uiAmountString: formatTokenAmount(rawAmountString, decimalsNumber),
-      decimals: decimalsNumber,
-      status: rawAmountBigInt === 0n ? "zero" : "ok"
-    };
+    return baseBalanceFromResult(representation, normalizedOwner, rawAmount, decimals);
   } catch (error) {
+    throwIfAborted(options.signal);
     return unavailableBaseBalance(representation, normalizedOwner, {
       code: "zodiac-read-unavailable",
       message: error instanceof Error ? error.message : "Base ERC-20 balance read failed."
@@ -99,6 +106,7 @@ export async function getBaseZodiacBalances(
   ownerAddress: string,
   options: BaseZodiacsReadOptions = {}
 ): Promise<readonly BaseZodiacBalance[]> {
+  assertBaseChain(publicClient);
   if (typeof publicClient.readContracts !== "function") {
     return Promise.all(
       getAllBaseBridgedZodiacs().map((representation) =>
@@ -116,7 +124,15 @@ export async function getBaseZodiacsOwnership(
   options: BaseZodiacsReadOptions = {}
 ): Promise<BaseZodiacsOwnership> {
   const checkedAt = new Date().toISOString();
-  const balances = await getBaseZodiacBalances(publicClient, ownerAddress, options);
+  throwIfAborted(options.signal);
+  assertBaseChain(publicClient);
+  const block = await getReadBlockNumber(publicClient, options);
+  throwIfAborted(options.signal);
+  const balances = await getBaseZodiacBalances(publicClient, ownerAddress, {
+    ...options,
+    ...block
+  });
+  throwIfAborted(options.signal);
   const minBalance = options.minBalance ?? 1n;
   const holdings = balances
     .map<BaseZodiacsHolding>((balance) => ({
@@ -152,7 +168,7 @@ export async function getBaseZodiacsOwnership(
     ownerAddress: owner,
     chain: "base",
     checkedAt,
-    ...(await getReadBlockNumber(publicClient, options)),
+    ...block,
     status: getBaseOwnershipStatus(balances),
     holdings,
     heldSigns,
@@ -176,6 +192,66 @@ export async function getBaseHeldZodiacs(
 ): Promise<readonly BaseZodiacsHolding[]> {
   const ownership = await getBaseZodiacsOwnership(publicClient, ownerAddress, options);
   return ownership.holdings.filter((holding) => holding.held);
+}
+
+function assertBaseChain(client: ZodiacsBasePublicClient): void {
+  const chainId = client.chain?.id;
+  if (chainId !== undefined && chainId !== BASE_CHAIN_ID) {
+    throw new UnsupportedChainError(String(chainId));
+  }
+}
+
+function unsignedInteger(value: unknown): bigint | null {
+  if (typeof value === "number" && !Number.isSafeInteger(value)) return null;
+  if (typeof value === "string" && !/^(?:\d+|0x[\da-f]+)$/iu.test(value)) return null;
+  if (typeof value !== "bigint" && typeof value !== "number" && typeof value !== "string")
+    return null;
+  const integer = BigInt(value);
+  return integer >= 0n && integer < UINT256_LIMIT ? integer : null;
+}
+
+function parseDecimals(value: unknown): number | null {
+  const decimals = unsignedInteger(value);
+  return decimals !== null && decimals <= 18n ? Number(decimals) : null;
+}
+
+function baseBalanceFromResult(
+  representation: ZodiacRepresentation,
+  ownerAddress: string,
+  amount: unknown,
+  decimalsValue: unknown
+): BaseZodiacBalance {
+  const raw = unsignedInteger(amount);
+  const decimals = parseDecimals(decimalsValue);
+  if (raw === null || decimals === null) {
+    return unavailableBaseBalance(representation, ownerAddress, {
+      code: "zodiac-read-unavailable",
+      message: "Invalid Base ERC-20 balance or decimals."
+    });
+  }
+  return {
+    sign: representation.sign,
+    ownerAddress,
+    representation,
+    chain: "base",
+    kind: "bridged",
+    tokenStandard: "ERC20",
+    rawAmount: raw.toString(),
+    uiAmountString: formatTokenAmount(raw, decimals),
+    decimals,
+    status: raw === 0n ? "zero" : "ok"
+  };
+}
+
+async function readBaseBatch(
+  publicClient: ZodiacsBasePublicClient,
+  request: BaseBatchRead
+): Promise<readonly ReadContractsResult[]> {
+  try {
+    return await publicClient.readContracts!(request);
+  } catch (error) {
+    return request.contracts.map(() => ({ status: "failure", error }));
+  }
 }
 
 function unavailableBaseBalance(
@@ -236,7 +312,7 @@ async function readBaseZodiacBalancesBatched(
     options
   );
   throwIfAborted(options.signal);
-  const balanceResults = await publicClient.readContracts?.({
+  const balanceResults = await readBaseBatch(publicClient, {
     contracts: representations.map((representation) => ({
       address: representation.address as `0x${string}`,
       abi: erc20Abi,
@@ -254,7 +330,7 @@ async function readBaseZodiacBalancesBatched(
     const decimals = decimalsByAddress.get(addressKey) ?? representation.decimals ?? 0;
     const warning = warningsByAddress.get(addressKey);
 
-    if (!result || result.status === "failure") {
+    if (result?.status !== "success") {
       return unavailableBaseBalance(representation, normalizedOwner, {
         code: "zodiac-read-unavailable",
         message: formatUnknownError(
@@ -264,22 +340,8 @@ async function readBaseZodiacBalancesBatched(
       });
     }
 
-    const rawAmount = BigInt(result.result as bigint | number | string);
-    const rawAmountString = rawAmount.toString();
-
-    return {
-      sign: representation.sign,
-      ownerAddress: normalizedOwner,
-      representation,
-      chain: "base",
-      kind: "bridged",
-      tokenStandard: "ERC20",
-      rawAmount: rawAmountString,
-      uiAmountString: formatTokenAmount(rawAmountString, decimals),
-      decimals,
-      status: rawAmount === 0n ? "zero" : "ok",
-      ...(warning ? { warning } : {})
-    };
+    const balance = baseBalanceFromResult(representation, normalizedOwner, result.result, decimals);
+    return warning ? { ...balance, warning } : balance;
   });
 }
 
@@ -291,20 +353,24 @@ async function getBaseDecimals(
   readonly decimalsByAddress: Map<string, number>;
   readonly warningsByAddress: Map<string, ZodiacSerializableError>;
 }> {
-  const cache = getDecimalsCache(publicClient);
-  const uncached = representations.filter(
-    (representation) => !cache.has(getDecimalsCacheKey(publicClient, representation))
-  );
-  const warningsByAddress = new Map<string, ZodiacSerializableError>();
-
-  if (uncached.length === 0) {
-    return {
-      decimalsByAddress: mapDecimals(publicClient, representations),
-      warningsByAddress
-    };
+  const block = options.blockNumber ?? options.blockTag ?? "latest";
+  let cache = decimalsCache.get(publicClient);
+  if (!cache) {
+    cache = new Map<string, CachedDecimals>();
+    decimalsCache.set(publicClient, cache);
   }
+  const decimalsByAddress = new Map<string, number>();
+  const warningsByAddress = new Map<string, ZodiacSerializableError>();
+  const uncached = representations.filter((representation) => {
+    const address = representation.address.toLowerCase();
+    const cached = cache.get(address);
+    if (cached?.block !== block || (typeof block !== "bigint" && block !== "latest")) return true;
+    decimalsByAddress.set(address, cached.decimals);
+    return false;
+  });
+  if (!uncached.length) return { decimalsByAddress, warningsByAddress };
 
-  const results = await publicClient.readContracts?.({
+  const results = await readBaseBatch(publicClient, {
     contracts: uncached.map((representation) => ({
       address: representation.address as `0x${string}`,
       abi: erc20Abi,
@@ -316,58 +382,24 @@ async function getBaseDecimals(
 
   uncached.forEach((representation, index) => {
     const result = results?.[index];
-    const key = getDecimalsCacheKey(publicClient, representation);
+    const address = representation.address.toLowerCase();
 
-    if (result?.status === "success") {
-      cache.set(key, Number(result.result));
+    const decimals = result?.status === "success" ? parseDecimals(result.result) : null;
+    if (decimals !== null) {
+      cache.set(address, { block, decimals });
+      decimalsByAddress.set(address, decimals);
       return;
     }
 
     if (typeof representation.decimals === "number") {
-      cache.set(key, representation.decimals);
-      warningsByAddress.set(representation.address.toLowerCase(), {
+      warningsByAddress.set(address, {
         code: "zodiac-read-unavailable",
         message: `${representation.sign} Base ERC-20 decimals read failed; used registry decimals.`
       });
     }
   });
 
-  return {
-    decimalsByAddress: mapDecimals(publicClient, representations),
-    warningsByAddress
-  };
-}
-
-function getDecimalsCache(publicClient: ZodiacsBasePublicClient): Map<string, number> {
-  let cache = decimalsCache.get(publicClient);
-
-  if (!cache) {
-    cache = new Map();
-    decimalsCache.set(publicClient, cache);
-  }
-
-  return cache;
-}
-
-function getDecimalsCacheKey(
-  publicClient: ZodiacsBasePublicClient,
-  representation: ZodiacRepresentation
-): string {
-  return `${publicClient.chain?.id ?? "unknown"}:${representation.address.toLowerCase()}`;
-}
-
-function mapDecimals(
-  publicClient: ZodiacsBasePublicClient,
-  representations: readonly ZodiacRepresentation[]
-): Map<string, number> {
-  const cache = getDecimalsCache(publicClient);
-
-  return new Map(
-    representations.map((representation) => [
-      representation.address.toLowerCase(),
-      cache.get(getDecimalsCacheKey(publicClient, representation)) ?? representation.decimals ?? 0
-    ])
-  );
+  return { decimalsByAddress, warningsByAddress };
 }
 
 function toBalancesBySign(
@@ -407,7 +439,10 @@ async function getReadBlockNumber(
     return { blockNumber: options.blockNumber };
   }
 
-  if (typeof publicClient.getBlockNumber !== "function") {
+  if (
+    (options.blockTag && options.blockTag !== "latest") ||
+    typeof publicClient.getBlockNumber !== "function"
+  ) {
     return {};
   }
 
@@ -422,10 +457,8 @@ function getBlockReadOptions(options: BaseZodiacsReadOptions): {
   readonly blockNumber?: bigint;
   readonly blockTag?: BaseZodiacsBlockTag;
 } {
-  return {
-    ...(options.blockNumber !== undefined ? { blockNumber: options.blockNumber } : {}),
-    ...(options.blockTag !== undefined ? { blockTag: options.blockTag } : {})
-  };
+  if (options.blockNumber !== undefined) return { blockNumber: options.blockNumber };
+  return options.blockTag === undefined ? {} : { blockTag: options.blockTag };
 }
 
 function formatUnknownError(error: unknown, fallback: string): string {

@@ -51,17 +51,19 @@ export function isOfficialZodiacRepresentation(
     return false;
   }
 
-  const official = getZodiacRepresentation(value.sign, value.chain);
+  const official = getRepresentationByAddress(value.address, options);
 
   if (!official) {
     return false;
   }
 
   return (
+    official.sign === value.sign &&
+    official.chain === value.chain &&
     official.kind === value.kind &&
-    official.tokenStandard === value.tokenStandard &&
-    normalizeLookupAddress(official.address, official.chain) ===
-      normalizeLookupAddress(value.address, value.chain)
+    official.isCanonicalOrigin === value.isCanonicalOrigin &&
+    (value.chainId === undefined || official.chainId === value.chainId) &&
+    official.tokenStandard === value.tokenStandard
   );
 }
 
@@ -180,6 +182,7 @@ export function getZodiacProvenance(sign: ZodiacSign): {
 }
 
 function normalizeLookupAddress(address: string, chain?: ZodiacChain): string | null {
+  if (typeof address !== "string") return null;
   const trimmed = address.trim();
 
   if (!trimmed) {

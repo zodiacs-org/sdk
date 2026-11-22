@@ -45,6 +45,96 @@ describe("Base read-only balances", () => {
     expect(readContract.mock.calls[1]?.[0]).toMatchObject({ functionName: "decimals" });
   });
 
+  it("isolates malformed batch rows and prevents false ownership from coerced balances", async () => {
+    for (const value of [true, false, "", " ", [], {}, -1n, 2.5, Number.MAX_SAFE_INTEGER + 1]) {
+      const readContracts = vi.fn(async ({ contracts }) =>
+        contracts.map((contract: { functionName: string }, index: number) => ({
+          status: "success",
+          result: contract.functionName === "decimals" ? 6 : index === 0 ? value : 1n
+        }))
+      );
+      const ownership = await getBaseZodiacsOwnership(
+        mockBatchedPublicClient(readContracts),
+        ownerAddress
+      );
+      expect(ownership.status).toBe("partial");
+      expect(ownership.unavailableSigns).toEqual(["aries"]);
+      expect(ownership.totalHeld).toBe(11);
+      expect(ownership.confirmedAbsentSigns).toEqual([]);
+      const single = mockPublicClient(
+        vi.fn(async ({ functionName }) => (functionName === "decimals" ? 6 : value))
+      );
+      expect((await getBaseZodiacBalance(single, ownerAddress, "aries")).status).toBe(
+        "unavailable"
+      );
+    }
+  });
+
+  it("retries invalid decimals and clears the fallback warning after recovery", async () => {
+    const readContracts = vi
+      .fn()
+      .mockResolvedValueOnce(Array(12).fill({ status: "success", result: null }))
+      .mockResolvedValueOnce(Array(12).fill({ status: "success", result: 100n }))
+      .mockResolvedValueOnce(Array(12).fill({ status: "success", result: 2 }))
+      .mockResolvedValueOnce(Array(12).fill({ status: "success", result: 100n }));
+    const client = mockBatchedPublicClient(readContracts);
+    const first = await getBaseZodiacsOwnership(client, ownerAddress);
+    expect(first.warnings).toHaveLength(12);
+    const second = await getBaseZodiacsOwnership(client, ownerAddress);
+    expect(second.balancesBySign?.aries.uiAmountString).toBe("1");
+    expect(second.warnings).toEqual([]);
+  });
+
+  it("honors the partial failure mode when the batch transport rejects", async () => {
+    const client = mockBatchedPublicClient(vi.fn().mockRejectedValue(new Error("RPC offline")));
+    const unavailable = await getBaseZodiacsOwnership(client, ownerAddress, {
+      onPartialFailure: "ignore"
+    });
+    expect(unavailable.status).toBe("unavailable");
+    expect(unavailable.unavailableSigns).toHaveLength(12);
+    expect(unavailable.confirmedAbsentSigns).toEqual([]);
+    expect(unavailable.errors).toEqual([]);
+    await expect(
+      getBaseZodiacsOwnership(client, ownerAddress, { onPartialFailure: "throw" })
+    ).rejects.toBeInstanceOf(PartialOwnershipReadError);
+  });
+
+  it("rejects explicitly mismatched networks before making a Base read", async () => {
+    const readContract = vi.fn(async () => 1n);
+    const readContracts = vi.fn(async () => []);
+    const client = { chain: { id: 1 }, readContract, readContracts };
+    await expect(getBaseZodiacBalance(client, ownerAddress, "aries")).rejects.toMatchObject({
+      code: "unsupported-zodiacs-chain"
+    });
+    await expect(getBaseZodiacsOwnership(client, ownerAddress)).rejects.toMatchObject({
+      code: "unsupported-zodiacs-chain"
+    });
+    expect(readContract).not.toHaveBeenCalled();
+    expect(readContracts).not.toHaveBeenCalled();
+  });
+
+  it("propagates cancellation during a single read and during block lookup", async () => {
+    const first = new AbortController();
+    const readContract = vi.fn(async () => {
+      first.abort();
+      return 0n;
+    });
+    await expect(
+      getBaseZodiacBalance({ readContract }, ownerAddress, "aries", { signal: first.signal })
+    ).rejects.toThrow(/aborted/);
+    const second = new AbortController();
+    const client = {
+      readContract: vi.fn(async () => 0n),
+      getBlockNumber: async () => {
+        second.abort();
+        return 1n;
+      }
+    };
+    await expect(
+      getBaseZodiacsOwnership(client, ownerAddress, { signal: second.signal })
+    ).rejects.toThrow(/aborted/);
+  });
+
   it("returns zero for empty balances", async () => {
     const readContract = vi.fn(async ({ functionName }) => (functionName === "decimals" ? 6 : 0n));
     const client = mockPublicClient(readContract);
@@ -120,7 +210,7 @@ describe("Base read-only balances", () => {
 
     const first = await getBaseZodiacsOwnershipBatched(client, ownerAddress, {
       includeZeroBalances: false,
-      blockTag: "safe"
+      blockTag: "latest"
     });
     const second = await getBaseZodiacsOwnership(client, ownerAddress);
 
@@ -129,7 +219,8 @@ describe("Base read-only balances", () => {
     expect(readContracts.mock.calls[0]?.[0].contracts[0].functionName).toBe("decimals");
     expect(readContracts.mock.calls[1]?.[0].contracts).toHaveLength(12);
     expect(readContracts.mock.calls[1]?.[0].contracts[0].functionName).toBe("balanceOf");
-    expect(readContracts.mock.calls[1]?.[0].blockTag).toBe("safe");
+    expect(readContracts.mock.calls[1]?.[0].blockNumber).toBe(123n);
+    expect(readContracts.mock.calls[1]?.[0]).not.toHaveProperty("blockTag");
     expect(readContracts.mock.calls[2]?.[0].contracts[0].functionName).toBe("balanceOf");
     expect(first).toMatchObject({
       owner: ownerAddress,
@@ -147,6 +238,23 @@ describe("Base read-only balances", () => {
     expect(first.balancesBySign?.aries.rawAmount).toBe("2500000");
     expect(first.representations).toHaveLength(12);
     expect(second.holdings).toHaveLength(12);
+  });
+
+  it("keeps historical decimals and tagged reads tied to the requested block", async () => {
+    const readContracts = vi.fn(async ({ contracts, blockNumber }) =>
+      contracts.map((contract: { functionName: string }) => ({
+        status: "success",
+        result: contract.functionName === "decimals" ? (blockNumber === 10n ? 2 : 3) : 1000n
+      }))
+    );
+    const client = mockBatchedPublicClient(readContracts);
+    const old = await getBaseZodiacsOwnership(client, ownerAddress, { blockNumber: 10n });
+    const recent = await getBaseZodiacsOwnership(client, ownerAddress, { blockNumber: 11n });
+    const safe = await getBaseZodiacsOwnership(client, ownerAddress, { blockTag: "safe" });
+    expect(old.balancesBySign?.aries.uiAmountString).toBe("10");
+    expect(recent.balancesBySign?.aries.uiAmountString).toBe("1");
+    expect(safe).not.toHaveProperty("blockNumber");
+    expect(readContracts.mock.lastCall?.[0].blockTag).toBe("safe");
   });
 
   it("applies minBalance without hiding zero-balance output", async () => {

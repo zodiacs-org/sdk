@@ -105,6 +105,44 @@ describe("canonical Zodiacs registry", () => {
     expect(normalizeZodiacsRegistry(ZODIACS_REGISTRY)).toEqual(ZODIACS_REGISTRY);
   });
 
+  it("requires exactly one supported chain entry per network with the numeric Base chain ID", () => {
+    const [solana, base] = ZODIACS_REGISTRY.supportedChains;
+    for (const supportedChains of [
+      [solana, base, base],
+      [solana, base, { ...base, chain: "other" }],
+      [solana, { ...base, chainId: "8453" }],
+      [{ ...solana, chainId: 0 }, base]
+    ]) {
+      expect(validateZodiacsRegistrySchema({ ...ZODIACS_REGISTRY, supportedChains }).valid).toBe(
+        false
+      );
+    }
+  });
+
+  it("preserves case-sensitive Solana addresses and ignores JSON field order", () => {
+    const assets = ZODIACS_REGISTRY.assets.map((asset, index) => {
+      if (index > 1) return asset;
+      const address = index === 0 ? ariesSolanaMint : ariesSolanaMint.slice(0, -1) + "V";
+      const native = { ...asset.native, address };
+      return {
+        ...asset,
+        native: Object.fromEntries(Object.entries(native).reverse()),
+        representations: asset.representations.map((rep) =>
+          rep.chain === "solana" ? native : { ...rep, originAddress: address }
+        )
+      };
+    });
+    expect(validateZodiacsRegistrySchema({ ...ZODIACS_REGISTRY, assets }).errors).toEqual([]);
+  });
+
+  it("applies chain filters and rejects inconsistent representation identity", () => {
+    const base = getBaseZodiacRepresentation("aries");
+    expect(isOfficialZodiacRepresentation(base, { chain: "solana" })).toBe(false);
+    expect(isOfficialZodiacRepresentation({ ...base, chainId: 1 })).toBe(false);
+    expect(isOfficialZodiacRepresentation({ ...base, isCanonicalOrigin: true })).toBe(false);
+    expect(isOfficialZodiacRepresentation({ ...base, sign: "none" as ZodiacSign })).toBe(false);
+  });
+
   it("rejects missing representation metadata fields", () => {
     const firstAsset = ZODIACS_REGISTRY.assets[0]!;
     const invalidRegistry = {

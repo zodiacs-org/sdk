@@ -1,5 +1,12 @@
 import { execFileSync } from "node:child_process";
-import { existsSync, mkdtempSync, mkdirSync, symlinkSync, writeFileSync } from "node:fs";
+import {
+  existsSync,
+  mkdtempSync,
+  mkdirSync,
+  readFileSync,
+  symlinkSync,
+  writeFileSync
+} from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -63,6 +70,24 @@ writeFileSync(
   ].join("\n")
 );
 
+const manifest = JSON.parse(readFileSync(join(packageRoot, "package.json"), "utf8"));
+const entries = Object.entries(manifest.exports)
+  .filter(([, target]) => typeof target === "object" && target.import)
+  .map(([subpath]) => manifest.name + subpath.slice(1));
+
+writeFileSync(
+  join(tmp, "consumer.cts"),
+  entries
+    .map(
+      (entry, index) =>
+        `// @ts-expect-error The SDK exposes this module to import callers only.
+import sync${index} = require("${entry}");
+void sync${index};
+void import("${entry}");`
+    )
+    .join("\n")
+);
+
 const configs = [
   {
     name: "node16",
@@ -102,7 +127,7 @@ for (const config of configs) {
           noUncheckedIndexedAccess: true,
           ...config.compilerOptions
         },
-        include: ["index.ts"]
+        include: config.name === "bundler" ? ["index.ts"] : ["index.ts", "consumer.cts"]
       },
       null,
       2
@@ -115,17 +140,18 @@ for (const config of configs) {
   });
 }
 
-execFileSync(
-  process.execPath,
-  [
-    "--input-type=module",
-    "--eval",
-    "const core = await import('@zodiacs/sdk/core'); const identity = await import('@zodiacs/sdk/identity'); console.log(core.ZODIAC_SIGNS.length, typeof identity.getConsumerSafeWalletContext);"
-  ],
-  {
-    cwd: tmp,
-    stdio: "inherit"
+writeFileSync(
+  join(tmp, "runtime.cjs"),
+  `
+const assert = require("node:assert/strict");
+(async () => {
+  for (const entry of ${JSON.stringify(entries)}) {
+    assert.throws(() => require(entry), { code: "ERR_PACKAGE_PATH_NOT_EXPORTED" });
+    assert.ok(Object.keys(await import(entry)).length > 0, entry);
   }
+})().catch(error => { console.error(error); process.exitCode = 1; });
+`
 );
+execFileSync(process.execPath, [join(tmp, "runtime.cjs")], { cwd: tmp, stdio: "inherit" });
 
 console.log("Module resolution smoke tests passed for Node16, NodeNext, and Bundler.");

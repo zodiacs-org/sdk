@@ -53,9 +53,10 @@ export function normalizeZodiacAddress(address: string, chain?: ZodiacChain): st
 }
 
 function normalizeSolanaAddressOrNull(address: string): string | null {
+  if (typeof address !== "string") return null;
   const trimmed = address.trim();
 
-  if (!trimmed) {
+  if (trimmed.length < SOLANA_PUBLIC_KEY_BYTES || trimmed.length > 44) {
     return null;
   }
 
@@ -67,7 +68,7 @@ function normalizeSolanaAddressOrNull(address: string): string | null {
 }
 
 function decodeBase58(value: string): Uint8Array {
-  const bytes: number[] = [0];
+  const bytes: number[] = [];
 
   for (const character of value) {
     const alphabetIndex = BASE58_VALUES.get(character);

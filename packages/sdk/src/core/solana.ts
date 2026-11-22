@@ -41,7 +41,7 @@ export function createSolanaConnection(
   connectionOrRpcUrl: ConnectionOrRpcUrl
 ): SolanaBalanceConnection {
   if (typeof connectionOrRpcUrl !== "string") {
-    if (typeof connectionOrRpcUrl.getParsedTokenAccountsByOwner !== "function") {
+    if (typeof connectionOrRpcUrl?.getParsedTokenAccountsByOwner !== "function") {
       throw new ZodiacsValidationError(
         "invalid-solana-connection",
         "Invalid Solana connection: getParsedTokenAccountsByOwner is required."
@@ -84,7 +84,11 @@ export function createReadonlySolanaBalanceReader(
       const response = await connection.getParsedTokenAccountsByOwner(walletPublicKey, {
         mint: mintPublicKey
       });
-      const amount = normalizeParsedTokenAccounts(response, token.decimals);
+      const amount = normalizeParsedTokenAccounts(
+        response,
+        token.decimals,
+        mintPublicKey.toBase58()
+      );
 
       if (amount.rawAmount === "0") {
         return null;
@@ -117,7 +121,7 @@ export async function getZodiacBalance(
       mint: mintPublicKey
     });
 
-    const amount = normalizeParsedTokenAccounts(response, token.decimals);
+    const amount = normalizeParsedTokenAccounts(response, token.decimals, mintPublicKey.toBase58());
 
     return {
       sign,
@@ -161,10 +165,12 @@ export async function getZodiacsOwnership(
     });
     throwIfAborted(options.signal);
     balances = normalizeWalletTokenAccounts(response, walletAddress);
-  } catch (error) {
+  } catch {
+    throwIfAborted(options.signal);
     balances = await Promise.all(
       ZODIAC_SIGNS.map((sign) => getZodiacBalance(connection, walletAddress, sign))
     );
+    throwIfAborted(options.signal);
   }
 
   const holdings = balances.map<ZodiacsHolding>((balance) => ({
@@ -232,14 +238,15 @@ export async function getHeldZodiacs(
 
 function normalizeParsedTokenAccounts(
   response: ParsedTokenAccountResponse,
-  fallbackDecimals: number
+  fallbackDecimals: number,
+  expectedMint: string
 ): {
   readonly rawAmount: string;
   readonly decimals: number;
   readonly uiAmount: number;
   readonly uiAmountString: string;
 } {
-  if (!Array.isArray(response.value)) {
+  if (!Array.isArray(response?.value)) {
     throw new Error("Invalid RPC response: expected token account array.");
   }
 
@@ -248,7 +255,11 @@ function normalizeParsedTokenAccounts(
   let hasTokenAccount = false;
 
   for (const account of response.value) {
-    const amount = account.account.data.parsed?.info?.tokenAmount;
+    const info = account?.account?.data?.parsed?.info;
+    if (info?.mint !== undefined && info.mint !== expectedMint) {
+      throw new Error("Invalid RPC response: account mint does not match the requested mint.");
+    }
+    const amount = info?.tokenAmount;
 
     if (!amount) {
       throw new Error("Invalid RPC response: token amount is missing.");
@@ -279,7 +290,7 @@ function normalizeWalletTokenAccounts(
   response: ParsedTokenAccountResponse,
   walletAddress: string
 ): readonly ZodiacBalance[] {
-  if (!Array.isArray(response.value)) {
+  if (!Array.isArray(response?.value)) {
     throw new Error("Invalid RPC response: expected token account array.");
   }
 
@@ -295,10 +306,13 @@ function normalizeWalletTokenAccounts(
   const errorsByMint = new Map<string, string>();
 
   for (const account of response.value) {
-    const info = account.account.data.parsed?.info;
+    const info = account?.account?.data?.parsed?.info;
     const mintAddress = info?.mint;
 
-    if (!mintAddress || !tokensByMint.has(mintAddress)) {
+    if (typeof mintAddress !== "string" || !mintAddress) {
+      throw new Error("Invalid RPC response: wallet scan account is missing a mint.");
+    }
+    if (!tokensByMint.has(mintAddress)) {
       continue;
     }
 
@@ -366,7 +380,7 @@ function normalizeWalletTokenAccounts(
 }
 
 function assertParsedAmount(amount: ParsedTokenAccountAmount): void {
-  if (!/^\d+$/u.test(amount.amount)) {
+  if (typeof amount.amount !== "string" || !/^\d+$/u.test(amount.amount)) {
     throw new Error("Invalid RPC response: token amount must be an unsigned integer string.");
   }
 

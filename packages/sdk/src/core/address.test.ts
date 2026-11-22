@@ -5,6 +5,9 @@ import {
   assertOfficialZodiacAddress,
   getRepresentationByAddress,
   isOfficialZodiacAddress,
+  isSolanaAddressLike,
+  validateWalletAddress,
+  validateMintAddress,
   normalizeEvmAddress,
   normalizeSolanaAddress,
   normalizeZodiacAddress
@@ -21,6 +24,21 @@ describe("address normalization and lookup", () => {
     expect(normalizeZodiacAddress("0x3ffb5282f5891dd8c813e64059edb0607537ec91")).toBe(
       "0x3ffB5282F5891Dd8c813E64059EdB0607537eC91"
     );
+  });
+
+  it("validates decoded public key width including all-zero keys", () => {
+    for (const [address, expected] of [
+      ["1".repeat(31), false],
+      ["1".repeat(32), true],
+      ["1".repeat(33), false],
+      ["1".repeat(31) + "2", true],
+      ["2".repeat(32), false],
+      ["z".repeat(44), false]
+    ] as const) {
+      for (const validate of [isSolanaAddressLike, validateWalletAddress, validateMintAddress]) {
+        expect(validate(address)).toBe(expected);
+      }
+    }
   });
 
   it("throws typed errors for invalid addresses", () => {

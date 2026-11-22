@@ -1,4 +1,5 @@
 import type { MarketAdapterConfig, ZodiacMarketAdapter } from "./types.js";
+import { parsePriceUsd } from "./price.js";
 import { unavailableMarketData } from "./unavailable.js";
 
 interface DexScreenerPair {
@@ -78,16 +79,16 @@ export function createDexScreenerMarketAdapter(
 
       const pair = payload.pairs?.[0];
 
-      if (!pair?.priceUsd) {
+      if (pair?.priceUsd == null) {
         return unavailableMarketData(options, "dex-screener", {
           code: "no-market",
           message: "No market pair was returned for this mint."
         });
       }
 
-      const priceUsd = Number(pair.priceUsd);
+      const priceUsd = parsePriceUsd(pair.priceUsd);
 
-      if (!Number.isFinite(priceUsd)) {
+      if (priceUsd === null) {
         return unavailableMarketData(options, "dex-screener", {
           code: "invalid-response",
           message: "Market price was not numeric."

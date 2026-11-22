@@ -40,48 +40,70 @@
   "types": "./dist/index.d.ts",
   "exports": {
     ".": {
-      "types": "./dist/index.d.ts",
-      "import": "./dist/index.js"
+      "import": {
+        "types": "./dist/index.d.ts",
+        "default": "./dist/index.js"
+      }
     },
     "./core": {
-      "types": "./dist/core.d.ts",
-      "import": "./dist/core.js"
+      "import": {
+        "types": "./dist/core.d.ts",
+        "default": "./dist/core.js"
+      }
     },
     "./market": {
-      "types": "./dist/market.d.ts",
-      "import": "./dist/market.js"
+      "import": {
+        "types": "./dist/market.d.ts",
+        "default": "./dist/market.js"
+      }
     },
     "./registry": {
-      "types": "./dist/registry.d.ts",
-      "import": "./dist/registry.js"
+      "import": {
+        "types": "./dist/registry.d.ts",
+        "default": "./dist/registry.js"
+      }
     },
     "./base": {
-      "types": "./dist/base.d.ts",
-      "import": "./dist/base.js"
+      "import": {
+        "types": "./dist/base.d.ts",
+        "default": "./dist/base.js"
+      }
     },
     "./solana": {
-      "types": "./dist/solana.d.ts",
-      "import": "./dist/solana.js"
+      "import": {
+        "types": "./dist/solana.d.ts",
+        "default": "./dist/solana.js"
+      }
     },
     "./identity": {
-      "types": "./dist/identity.d.ts",
-      "import": "./dist/identity.js"
+      "import": {
+        "types": "./dist/identity.d.ts",
+        "default": "./dist/identity.js"
+      }
     },
     "./react": {
-      "types": "./dist/react.d.ts",
-      "import": "./dist/react.js"
+      "import": {
+        "types": "./dist/react.d.ts",
+        "default": "./dist/react.js"
+      }
     },
     "./ui": {
-      "types": "./dist/ui.d.ts",
-      "import": "./dist/ui.js"
+      "import": {
+        "types": "./dist/ui.d.ts",
+        "default": "./dist/ui.js"
+      }
     },
     "./testing": {
-      "types": "./dist/testing.d.ts",
-      "import": "./dist/testing.js"
+      "import": {
+        "types": "./dist/testing.d.ts",
+        "default": "./dist/testing.js"
+      }
     },
     "./assets": {
-      "types": "./dist/assets.d.ts",
-      "import": "./dist/assets.js"
+      "import": {
+        "types": "./dist/assets.d.ts",
+        "default": "./dist/assets.js"
+      }
     },
     "./assets/zodiac-icons/circle/*.png": "./assets/zodiac-icons/circle/*.png",
     "./registry/zodiacs.registry.json": {

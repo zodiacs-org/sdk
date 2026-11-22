@@ -93,17 +93,22 @@ export function rawAmountToNumber(amountRaw: string | number | bigint, decimals:
   const raw = normalizeRawAmountString(amountRaw);
   assertDecimals(decimals);
 
-  return Number(raw) / 10 ** decimals;
+  return Number(`${raw}e-${decimals}`);
 }
 
 function normalizeRawAmountString(amountRaw: string | number | bigint): string {
-  const raw = typeof amountRaw === "bigint" ? amountRaw.toString() : String(amountRaw);
+  if (typeof amountRaw === "number" && !Number.isSafeInteger(amountRaw)) {
+    throw new RangeError(
+      "Numeric token amounts must be safe integers. Use a string or bigint for larger amounts."
+    );
+  }
+  const raw = String(amountRaw);
 
   if (!/^\d+$/u.test(raw)) {
     throw new Error(`Token amount must be an unsigned integer string: ${raw}`);
   }
 
-  return raw;
+  return raw.replace(/^0+(?=\d)/u, "");
 }
 
 function assertDecimals(decimals: number): void {

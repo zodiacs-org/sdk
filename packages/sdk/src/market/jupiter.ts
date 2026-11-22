@@ -1,4 +1,5 @@
 import type { MarketAdapterConfig, ZodiacMarketAdapter } from "./types.js";
+import { parsePriceUsd } from "./price.js";
 import { unavailableMarketData } from "./unavailable.js";
 
 type JupiterPriceResponse = Record<string, { readonly usdPrice?: string | number }>;
@@ -65,12 +66,18 @@ export function createJupiterMarketAdapter(config: MarketAdapterConfig = {}): Zo
       }
 
       const priceValue = payload[options.token.mintAddress]?.usdPrice;
-      const priceUsd = typeof priceValue === "string" ? Number(priceValue) : (priceValue ?? null);
-
-      if (priceUsd === null || !Number.isFinite(priceUsd)) {
+      if (priceValue == null) {
         return unavailableMarketData(options, "jupiter", {
           code: "no-market",
           message: "No price was returned for this mint."
+        });
+      }
+
+      const priceUsd = parsePriceUsd(priceValue);
+      if (priceUsd === null) {
+        return unavailableMarketData(options, "jupiter", {
+          code: "invalid-response",
+          message: "Invalid USD price."
         });
       }
 

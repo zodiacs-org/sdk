@@ -1,3 +1,5 @@
+import { isSolanaAddressLike } from "./address.js";
+import { InvalidZodiacSignError } from "./errors.js";
 import { ZODIAC_SIGNS, type ZodiacSign, type ZodiacToken } from "./types.js";
 
 const signSet = new Set<string>(ZODIAC_SIGNS);
@@ -5,33 +7,38 @@ const base58Pattern = /^[1-9A-HJ-NP-Za-km-z]+$/u;
 
 export function normalizeZodiacSign(value: string): ZodiacSign | null {
   const normalized = value.trim().toLowerCase().replaceAll(/\s|-/gu, "");
-  return signSet.has(normalized) ? (normalized as ZodiacSign) : null;
+  return isZodiacSign(normalized) ? normalized : null;
 }
 
-export function isZodiacSign(value: string): value is ZodiacSign {
-  return normalizeZodiacSign(value) !== null;
+export function isZodiacSign(value: unknown): value is ZodiacSign {
+  return typeof value === "string" && signSet.has(value);
 }
 
 export function assertZodiacSign(value: string): ZodiacSign {
   const sign = normalizeZodiacSign(value);
 
   if (!sign) {
-    throw new Error(`Invalid zodiac sign: ${value}`);
+    throw new InvalidZodiacSignError(value);
   }
 
   return sign;
 }
 
 export function isLikelyBase58Address(value: string): boolean {
-  return value.length >= 32 && value.length <= 44 && base58Pattern.test(value);
+  return (
+    typeof value === "string" &&
+    value.length >= 32 &&
+    value.length <= 44 &&
+    base58Pattern.test(value)
+  );
 }
 
 export function validateWalletAddress(value: string): boolean {
-  return isLikelyBase58Address(value);
+  return isLikelyBase58Address(value) && isSolanaAddressLike(value);
 }
 
 export function validateMintAddress(value: string): boolean {
-  return isLikelyBase58Address(value);
+  return isLikelyBase58Address(value) && isSolanaAddressLike(value);
 }
 
 export function validateZodiacToken(token: ZodiacToken): readonly string[] {
