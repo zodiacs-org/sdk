@@ -118,11 +118,15 @@ function normalizeDate(date: Date): Date {
 }
 
 function utcDate(year: number, month: number, day: number): Date {
-  return new Date(Date.UTC(year, month - 1, day));
+  // Date.UTC maps years 0 through 99 to 1900 through 1999.
+  const date = new Date(0);
+  date.setUTCFullYear(year, month - 1, day);
+  return date;
 }
 
 function toIsoDate(date: Date): string {
-  return date.toISOString().slice(0, 10);
+  const iso = date.toISOString();
+  return iso.slice(0, iso.indexOf("T"));
 }
 
 function parseIsoDate(value: string): Date {
