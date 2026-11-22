@@ -135,6 +135,9 @@ console.log(context.heldSigns);
 console.log(context.currentSeasonHeld);
 ```
 
+Apps that compute birth charts can pass engine sign slugs to the identity helpers.
+See the [engine 2.0.0 integration example](https://github.com/zodiacs-org/sdk/blob/main/docs/migration.md#using-engine-200-with-sdk-identity-context).
+
 The SDK is read-only. The root and core entrypoints provide registry
 verification, public balance reads, metadata, and computed symbolic context.
 React hooks and UI components are optional through `@zodiacs/sdk/react` and

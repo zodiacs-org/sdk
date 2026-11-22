@@ -36,6 +36,23 @@ describe("zodiac season helpers", () => {
     });
   });
 
+  it("preserves early UTC years when looking up season bounds", () => {
+    const date = new Date("0042-07-25T12:00:00Z");
+    expect(getZodiacSeasonForDate(date)).toMatchObject({
+      sign: "leo",
+      startDate: "0042-07-23",
+      endDate: "0042-08-22"
+    });
+    const january = new Date("0000-01-01T00:00:00Z");
+    expect(getZodiacSeasonProgress(january)).toMatchObject({
+      sign: "capricorn",
+      startDate: "-000001-12-22",
+      endDate: "0000-01-19",
+      progress: 34.48
+    });
+    expect(getNextZodiacSeason(january).startDate).toBe("0000-01-20");
+  });
+
   it("returns display-safe season progress as a percentage", () => {
     expect(getZodiacSeasonProgress(new Date("2026-03-21T00:00:00.000Z"))).toMatchObject({
       sign: "aries",

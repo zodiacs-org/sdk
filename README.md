@@ -303,6 +303,9 @@ modality mix, current season, wheel coverage, and optional manual placement
 alignment. They do not generate horoscopes or recommend asset acquisition,
 disposal, exchange, or retention. The SDK remains read-only.
 
+Apps that compute birth charts can pass engine sign slugs to the identity helpers.
+See the [engine 2.0.0 integration example](docs/migration.md#using-engine-200-with-sdk-identity-context).
+
 React integrations can use `useCurrentZodiacSeason`, `useZodiacIdentityContext`,
 and `useIdentityReceiptData` as thin deterministic wrappers around the same
 helpers.

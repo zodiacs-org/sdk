@@ -192,6 +192,9 @@ importers:
       '@types/react-dom':
         specifier: ^18.3.1
         version: 18.3.7(@types/react@18.3.29)
+      '@zodiacs/engine':
+        specifier: 2.0.0
+        version: 2.0.0
       react:
         specifier: ^18.3.1
         version: 18.3.1
@@ -2200,6 +2203,10 @@ packages:
 
   '@walletconnect/window-metadata@1.0.1':
     resolution: {integrity: sha512-9koTqyGrM2cqFRW517BPY/iEtUDx2r1+Pwwu5m7sJ7ka79wi3EyqhqcICk/yDmv6jAS1rjKgTKXlEhanYjijcA==}
+
+  '@zodiacs/engine@2.0.0':
+    resolution: {integrity: sha512-CL7FCs8VsoiUu5CYVhWPvp1ZXnv7veuTDa1u19SxJKnGcuh8Tw7s0vFewKzRB+MdQwdRlGnT3fVyl8PmHgnmWw==}
+    engines: {node: ^20.19.0 || >=22.7.0}
 
   abitype@1.0.6:
     resolution: {integrity: sha512-MMSqYh4+C/aVqI2RQaWqbvI4Kxo5cQV40WQ4QFtDnNzCkqChm8MuENhElmynZlO0qUy/ObkEUaXtKqYnx1Kp3A==}
@@ -7797,6 +7804,10 @@ snapshots:
     dependencies:
       '@walletconnect/window-getters': 1.0.1
       tslib: 1.14.1
+
+  '@zodiacs/engine@2.0.0':
+    dependencies:
+      astronomy-engine: 2.1.19
 
   abitype@1.0.6(typescript@5.9.3)(zod@3.25.76):
     optionalDependencies:
