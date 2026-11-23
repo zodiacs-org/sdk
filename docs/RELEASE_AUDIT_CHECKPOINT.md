@@ -5,7 +5,7 @@ SDK canonical registry and read-only integration layer.
 
 ## Package Structure
 
-- `@zodiacs/sdk` package version `1.0.0` in `packages/sdk`
+- `@zodiacs/sdk` package version `1.0.1` in `packages/sdk`
 - machine-readable registry artifact at `packages/sdk/registry/zodiacs.registry.json`
 - generic Next.js integration example in `examples/nextjs`
 - root, core, registry, Base, Solana, identity, testing, and market entry
@@ -90,14 +90,11 @@ corepack pnpm package:contents
 corepack pnpm neutrality:guard
 ```
 
-Optional release dry-runs:
+Inspect the package file list from `packages/sdk`:
 
 ```sh
 npm pack --dry-run --json
-corepack pnpm publish --recursive --dry-run --no-git-checks --ignore-scripts --access public
 ```
-
-Run package dry-runs from `packages/sdk`.
 
 ## Known Limitations
 
@@ -105,7 +102,7 @@ Run package dry-runs from `packages/sdk`.
 - Balance reads depend on the configured Solana RPC endpoint or Base RPC transport.
 - Public RPC endpoints may rate-limit or return transient failures.
 - Mint and bridge address changes must be handled as explicit registry updates with tests.
-- The public SDK repository is `https://github.com/ZodiacsOfficial/sdk`.
+- The public SDK repository is `https://github.com/zodiacs-org/sdk`.
 
 ## Read-Only And Security Posture
 

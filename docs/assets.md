@@ -39,6 +39,8 @@ Bundlers that support image imports can reference the PNG files directly:
 
 ```ts
 import leoIconUrl from "@zodiacs/sdk/assets/zodiac-icons/circle/leo.png";
+
+console.log(leoIconUrl);
 ```
 
 Build pipelines can also copy files from the package using the manifest

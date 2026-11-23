@@ -1,157 +1,96 @@
 import { execFileSync } from "node:child_process";
-import {
-  existsSync,
-  mkdtempSync,
-  mkdirSync,
-  readFileSync,
-  symlinkSync,
-  writeFileSync
-} from "node:fs";
-import { tmpdir } from "node:os";
-import { dirname, join, resolve } from "node:path";
-import { fileURLToPath } from "node:url";
+import { copyFileSync, writeFileSync } from "node:fs";
+import { join } from "node:path";
+import { tsc, withPackedConsumer } from "./packed-consumer.mjs";
+import { checkWebRuntimes } from "./web-runtime-smoke.mjs";
 
-const scriptDir = dirname(fileURLToPath(import.meta.url));
-const packageRoot = resolve(scriptDir, "..");
-const repoRoot = resolve(packageRoot, "../..");
-const tscBin = join(repoRoot, "node_modules/typescript/bin/tsc");
-const distCore = join(packageRoot, "dist/core.js");
-
-if (!existsSync(distCore)) {
-  throw new Error("Build @zodiacs/sdk before running module-resolution smoke tests.");
-}
-
-const tmp = mkdtempSync(join(tmpdir(), "zodiacs-sdk-resolution-"));
-const scopedModules = join(tmp, "node_modules/@zodiacs");
-mkdirSync(scopedModules, { recursive: true });
-symlinkSync(packageRoot, join(scopedModules, "sdk"), "dir");
-
-writeFileSync(join(tmp, "package.json"), JSON.stringify({ type: "module" }, null, 2));
-writeFileSync(
-  join(tmp, "index.ts"),
-  [
-    'import type { ZodiacIdentityContext } from "@zodiacs/sdk/core";',
-    'import type { ZodiacsRegistry } from "@zodiacs/sdk/registry";',
-    'import type { BaseZodiacsOwnership } from "@zodiacs/sdk/base";',
-    'import type { ZodiacsOwnership } from "@zodiacs/sdk/solana";',
-    'import type { ConsumerSafeWalletContext } from "@zodiacs/sdk/identity";',
-    'import type { ZodiacIconAsset } from "@zodiacs/sdk/assets";',
-    'import { ZODIAC_SIGNS, getZodiacIdentityContext } from "@zodiacs/sdk/core";',
-    'import { getZodiacsRegistry } from "@zodiacs/sdk/registry";',
-    'import { getBaseZodiacRepresentation } from "@zodiacs/sdk/base";',
-    'import { getSolanaZodiacRepresentation } from "@zodiacs/sdk/solana";',
-    'import { getConsumerSafeWalletContext } from "@zodiacs/sdk/identity";',
-    'import { getZodiacIconAsset } from "@zodiacs/sdk/assets";',
-    'import { createPlaceholderMarketAdapter } from "@zodiacs/sdk/market";',
-    'import { createMockOwnership } from "@zodiacs/sdk/testing";',
-    "",
-    "const ownership = createMockOwnership({ heldSigns: ['aries'] });",
-    "const context = getZodiacIdentityContext(ownership);",
-    "const consumerSafe = getConsumerSafeWalletContext(ownership);",
-    "const registry = getZodiacsRegistry();",
-    "const base = getBaseZodiacRepresentation('aries');",
-    "const solana = getSolanaZodiacRepresentation('aries');",
-    "const icon = getZodiacIconAsset('aries');",
-    "const market = createPlaceholderMarketAdapter();",
-    "const typedContext: ZodiacIdentityContext = context;",
-    "const typedRegistry: ZodiacsRegistry = registry;",
-    "const typedBaseOwnership: BaseZodiacsOwnership | null = null;",
-    "const typedSolanaOwnership: ZodiacsOwnership = ownership;",
-    "const typedConsumerSafe: ConsumerSafeWalletContext = consumerSafe;",
-    "const typedIcon: ZodiacIconAsset = icon;",
-    "",
-    "void typedContext;",
-    "void typedRegistry;",
-    "void typedBaseOwnership;",
-    "void typedSolanaOwnership;",
-    "void typedConsumerSafe;",
-    "void typedIcon;",
-    "console.log(ZODIAC_SIGNS.length, context.totalUniqueSigns, consumerSafe.readOnly, registry.assets.length, base.chain, solana.chain, icon.packagePath, Boolean(market));"
-  ].join("\n")
-);
-
-const manifest = JSON.parse(readFileSync(join(packageRoot, "package.json"), "utf8"));
-const entries = Object.entries(manifest.exports)
-  .filter(([, target]) => typeof target === "object" && target.import)
-  .map(([subpath]) => manifest.name + subpath.slice(1));
-
-writeFileSync(
-  join(tmp, "consumer.cts"),
-  entries
-    .map(
-      (entry, index) =>
-        `// @ts-expect-error The SDK exposes this module to import callers only.
-import sync${index} = require("${entry}");
-void sync${index};
-void import("${entry}");`
-    )
-    .join("\n")
-);
-
-const configs = [
-  {
-    name: "node16",
-    compilerOptions: {
-      module: "Node16",
-      moduleResolution: "Node16"
+await withPackedConsumer(async ({ cwd, entries, addPeers }) => {
+  const node = (...args) => execFileSync(process.execPath, args, { cwd, stdio: "inherit" });
+  const coreEntries = entries.filter((name) => !["react", "ui"].includes(name.split("/")[2]));
+  node(
+    "--input-type=module",
+    "-e",
+    `
+    import assert from "node:assert/strict";
+    import registry from "@zodiacs/sdk/registry/zodiacs.registry.json" with { type: "json" };
+    import { readFileSync } from "node:fs";
+    import { getAllZodiacIconAssets } from "@zodiacs/sdk/assets";
+    assert.equal(registry.assets.length, 12);
+    for (const { packagePath } of getAllZodiacIconAssets()) {
+      const bytes = readFileSync(new URL(import.meta.resolve(packagePath)));
+      assert.equal(bytes.subarray(1, 4).toString(), "PNG");
     }
-  },
-  {
-    name: "nodenext",
-    compilerOptions: {
-      module: "NodeNext",
-      moduleResolution: "NodeNext"
-    }
-  },
-  {
-    name: "bundler",
-    compilerOptions: {
-      module: "ESNext",
-      moduleResolution: "Bundler"
-    }
-  }
-];
-
-for (const config of configs) {
-  const tsconfigPath = join(tmp, `tsconfig.${config.name}.json`);
-  writeFileSync(
-    tsconfigPath,
-    JSON.stringify(
-      {
-        compilerOptions: {
-          target: "ES2022",
-          strict: true,
-          noEmit: true,
-          skipLibCheck: true,
-          exactOptionalPropertyTypes: true,
-          noUncheckedIndexedAccess: true,
-          ...config.compilerOptions
-        },
-        include: config.name === "bundler" ? ["index.ts"] : ["index.ts", "consumer.cts"]
-      },
-      null,
-      2
-    )
+    assert.throws(() => import.meta.resolve("react"), { code: "ERR_MODULE_NOT_FOUND" });
+    for (const name of ${JSON.stringify(coreEntries)}) assert.ok(Object.keys(await import(name)).length, name);
+  `
   );
 
-  execFileSync(process.execPath, [tscBin, "--project", tsconfigPath], {
-    cwd: tmp,
-    stdio: "inherit"
-  });
-}
+  writeFileSync(
+    join(cwd, "core-only.mts"),
+    coreEntries.map((name) => `export * as ${name.split("/").at(-1)} from "${name}";`).join("\n")
+  );
+  node(
+    tsc,
+    "--module",
+    "nodenext",
+    "--target",
+    "es2022",
+    "--strict",
+    "--exactOptionalPropertyTypes",
+    "--noEmit",
+    "core-only.mts"
+  );
 
-writeFileSync(
-  join(tmp, "runtime.cjs"),
+  addPeers("react", "@types/react", "@types/node", "viem");
+  const runtime = `
+    const assert = require("node:assert/strict");
+    (async () => {
+      for (const entry of ${JSON.stringify(entries)}) {
+        assert.throws(() => require(entry), { code: "ERR_PACKAGE_PATH_NOT_EXPORTED" });
+        assert.ok(Object.keys(await import(entry)).length, entry);
+      }
+      const root = await import("@zodiacs/sdk");
+      const core = await import("@zodiacs/sdk/core");
+      assert.equal(root.ZodiacsError, core.ZodiacsError);
+      assert.equal(root.getZodiacsRegistry(), core.getZodiacsRegistry());
+      assert.equal(require("@zodiacs/sdk/registry/zodiacs.registry.json").assets.length, 12);
+    })().catch(error => { console.error(error); process.exitCode = 1; });
+  `;
+  writeFileSync(join(cwd, "runtime.cjs"), runtime);
+  node("runtime.cjs");
+  copyFileSync(new URL("./fixtures/consumer.mts", import.meta.url), join(cwd, "consumer.mts"));
+  writeFileSync(
+    join(cwd, "consumer.cts"),
+    entries
+      .map(
+        (entry, i) => `
+    // @ts-expect-error The SDK exposes this module to import callers only.
+    import sync${i} = require("${entry}");
+    void sync${i};
+    void import("${entry}");
   `
-const assert = require("node:assert/strict");
-(async () => {
-  for (const entry of ${JSON.stringify(entries)}) {
-    assert.throws(() => require(entry), { code: "ERR_PACKAGE_PATH_NOT_EXPORTED" });
-    assert.ok(Object.keys(await import(entry)).length > 0, entry);
+      )
+      .join("\n")
+  );
+  for (const resolution of ["nodenext", "bundler", "node16"]) {
+    const bundler = resolution === "bundler";
+    node(
+      tsc,
+      "--moduleResolution",
+      resolution,
+      "--module",
+      bundler ? "esnext" : resolution,
+      "--target",
+      "es2022",
+      "--strict",
+      "--exactOptionalPropertyTypes",
+      "--noUncheckedIndexedAccess",
+      // viem and ox ship mixed-mode declarations that TS Node16 cannot fully check.
+      ...(resolution === "node16" ? ["--skipLibCheck"] : []),
+      "--noEmit",
+      "consumer.mts",
+      ...(bundler ? [] : ["consumer.cts"])
+    );
   }
-})().catch(error => { console.error(error); process.exitCode = 1; });
-`
-);
-execFileSync(process.execPath, [join(tmp, "runtime.cjs")], { cwd: tmp, stdio: "inherit" });
-
-console.log("Module resolution smoke tests passed for Node16, NodeNext, and Bundler.");
+  await checkWebRuntimes(cwd, entries);
+});

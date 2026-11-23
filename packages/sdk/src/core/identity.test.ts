@@ -51,6 +51,11 @@ const fullWheelOwnership = {
 } as const;
 
 describe("identity composition helpers", () => {
+  it("accepts an empty cross-chain result when neither address was supplied", () => {
+    expect(getZodiacIdentityContext({}).heldSigns).toEqual([]);
+    expect(getConsumerSafeWalletContext({}).walletRequired).toBe(false);
+  });
+
   it("computes element, modality, total, own-sign, and wheel state", () => {
     expect(getElementComposition(ownership)).toMatchObject({ fire: 1, air: 1 });
     expect(getModalityComposition(ownership)).toMatchObject({ cardinal: 1, mutable: 1 });

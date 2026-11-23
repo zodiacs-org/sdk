@@ -5,8 +5,15 @@ clients or request signatures.
 
 ```tsx
 import { useBaseZodiacsOwnership, useZodiacIdentityContext } from "@zodiacs/sdk/react";
+import type { ZodiacsBasePublicClient } from "@zodiacs/sdk/base";
 
-export function ReadOnlyProfile({ publicClient, address }) {
+export function ReadOnlyProfile({
+  publicClient,
+  address
+}: {
+  publicClient: ZodiacsBasePublicClient;
+  address: string;
+}) {
   const ownership = useBaseZodiacsOwnership(publicClient, address, { blockTag: "safe" });
   const context = useZodiacIdentityContext(ownership.data ?? { holdings: [] });
 

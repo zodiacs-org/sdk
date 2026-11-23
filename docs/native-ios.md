@@ -59,6 +59,17 @@ public protocol ZodiacsReadOnlyAPIClient {
 ## Minimal Models
 
 ```swift
+public typealias ZodiacSign = String
+
+public struct ZodiacsOwnership: Decodable {
+    public let heldSigns: [ZodiacSign]
+}
+
+public struct ZodiacsContextRequest: Encodable {
+    public let baseAddress: String?
+    public let solanaAddress: String?
+}
+
 public struct ZodiacsContextResponse: Decodable, Sendable {
     public let readOnly: Bool
     public let walletRequired: Bool
@@ -77,21 +88,23 @@ public struct ZodiacFact: Decodable, Sendable {
 ## Backend SDK Usage
 
 ```ts
-import { getBaseZodiacsOwnership } from "@zodiacs/sdk/base";
+import { getCrossChainZodiacsOwnership } from "@zodiacs/sdk/core";
 import { getConsumerSafeWalletContext } from "@zodiacs/sdk/identity";
-import { getSolanaZodiacsOwnership } from "@zodiacs/sdk/solana";
+import { createPublicClient, http } from "viem";
+import { base } from "viem/chains";
 
-const solana = solanaAddress
-  ? await getSolanaZodiacsOwnership(process.env.SOLANA_RPC_URL!, solanaAddress)
-  : undefined;
-const base = baseAddress ? await getBaseZodiacsOwnership(basePublicClient, baseAddress) : undefined;
+const publicClient = createPublicClient({ chain: base, transport: http(process.env.BASE_RPC_URL) });
 
-return getConsumerSafeWalletContext(
-  { solana, base },
-  {
-    publicAddress: baseAddress ?? solanaAddress
-  }
-);
+export async function walletContext(baseAddress?: string, solanaAddress?: string) {
+  const ownership = await getCrossChainZodiacsOwnership({
+    ...(baseAddress && { base: { publicClient, ownerAddress: baseAddress } }),
+    ...(solanaAddress && {
+      solana: { connection: process.env.SOLANA_RPC_URL!, ownerAddress: solanaAddress }
+    })
+  });
+  const publicAddress = baseAddress || solanaAddress;
+  return getConsumerSafeWalletContext(ownership, publicAddress ? { publicAddress } : {});
+}
 ```
 
 ## App Review Notes

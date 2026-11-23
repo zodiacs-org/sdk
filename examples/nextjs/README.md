@@ -10,6 +10,7 @@ Install dependencies from the repository root:
 
 ```sh
 corepack pnpm install
+corepack pnpm --filter @zodiacs/sdk build
 ```
 
 Create an environment file for the example:
@@ -18,9 +19,9 @@ Create an environment file for the example:
 cp examples/nextjs/.env.example examples/nextjs/.env.local
 ```
 
-Or provide the variable inline when running the app:
+Set the variable in that file:
 
-```sh
+```dotenv
 NEXT_PUBLIC_SOLANA_RPC_URL="https://api.mainnet-beta.solana.com"
 ```
 

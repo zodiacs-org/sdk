@@ -28,11 +28,11 @@
   ],
   "homepage": "https://zodiacs.org/sdk",
   "bugs": {
-    "url": "https://github.com/ZodiacsOfficial/sdk/issues"
+    "url": "https://github.com/zodiacs-org/sdk/issues"
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/ZodiacsOfficial/sdk.git"
+    "url": "git+https://github.com/zodiacs-org/sdk.git"
   },
   "type": "module",
   "sideEffects": false,
@@ -138,6 +138,8 @@
     "test": "vitest run src/**/*.test.ts src/**/*.test.tsx"
   },
   "dependencies": {
+    "abitype": "1.2.3",
+    "ox": "0.14.25",
     "viem": "^2.45.0"
   },
   "peerDependencies": {
@@ -149,10 +151,13 @@
     }
   },
   "devDependencies": {
+    "@edge-runtime/vm": "5.0.0",
     "@types/node": "^22.10.1",
     "@types/react": "^18.3.12",
     "@types/react-dom": "^18.3.1",
     "@zodiacs/engine": "2.0.0",
+    "esbuild": "0.27.7",
+    "playwright-core": "1.56.1",
     "react": "^18.3.1",
     "react-dom": "^18.3.1"
   }

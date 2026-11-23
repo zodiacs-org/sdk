@@ -18,7 +18,7 @@ Before cutting a release:
 
 ## Required Commands
 
-Run from the repository root:
+Run from the repository root with Chrome and Swift installed. Set `CHROME_BIN` to use another Chromium executable.
 
 ```sh
 corepack pnpm install --frozen-lockfile
@@ -30,13 +30,14 @@ corepack pnpm neutrality:guard
 corepack pnpm test
 corepack pnpm build
 corepack pnpm exports:smoke
+corepack pnpm docs:smoke
 corepack pnpm pack:dry-run
 corepack pnpm package:contents
 ```
 
 ## npm Publishing Checklist
 
-- Review `npm --prefix packages/sdk pack --dry-run` output and verify it contains only package files needed by downstream consumers.
+- Review `corepack pnpm pack:dry-run` output and verify it contains only package files needed by downstream consumers.
 - Run `corepack pnpm package:contents` to fail on raw source, tests, snapshots,
   build info files, or stale generated junk in the npm package.
 - Verify `dist/*.d.ts` exists for every exported subpath.

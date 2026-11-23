@@ -49,6 +49,7 @@ GET /api/zodiacs/context?baseAddress=&solanaAddress=
 Example Next.js route for Base:
 
 ```ts
+// base-route.ts
 import { getBaseZodiacsOwnership } from "@zodiacs/sdk/base";
 import { getZodiacIdentityContext } from "@zodiacs/sdk/core";
 import { createPublicClient, http } from "viem";
@@ -76,6 +77,7 @@ export async function GET(_request: Request, context: { params: Promise<{ addres
 Example Solana route:
 
 ```ts
+// solana-route.ts
 import { getSolanaZodiacsOwnership } from "@zodiacs/sdk/solana";
 
 export async function GET(_request: Request, context: { params: Promise<{ address: string }> }) {
@@ -87,11 +89,16 @@ export async function GET(_request: Request, context: { params: Promise<{ addres
 Example combined context route:
 
 ```ts
+// context-route.ts
 import {
   getCrossChainZodiacsOwnership,
   getZodiacIdentityContext,
   getIdentityReceiptData
 } from "@zodiacs/sdk/core";
+import { createPublicClient, http } from "viem";
+import { base } from "viem/chains";
+
+const publicClient = createPublicClient({ chain: base, transport: http(process.env.BASE_RPC_URL) });
 
 export async function GET(request: Request) {
   const url = new URL(request.url);
@@ -106,7 +113,12 @@ export async function GET(request: Request) {
   });
 
   return Response.json({
-    ownership,
+    ownership: {
+      ...ownership,
+      ...(ownership.base && {
+        base: { ...ownership.base, blockNumber: ownership.base.blockNumber?.toString() }
+      })
+    },
     identity: getZodiacIdentityContext(ownership),
     receipt: getIdentityReceiptData(ownership)
   });
