@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   getCompatibilityContext,
+  getCrossChainZodiacsOwnership,
   getBaseZodiacBalance,
   getBaseZodiacsOwnership,
   getIdentityReceiptData,
@@ -16,6 +17,9 @@ import {
   isOfficialZodiacAddress,
   readZodiacBalance,
   type BaseZodiacsReadOptions,
+  type ReadOptions,
+  type SolanaZodiacsReadOptions,
+  type ZodiacHoldingsByChainParams,
   type BaseZodiacBalance,
   type BaseZodiacsOwnership,
   type ZodiacCompatibilityContext,
@@ -44,11 +48,13 @@ import { useZodiacs } from "./context.js";
 const balanceReaderNotConfiguredMessage =
   "Balance reader is not configured. Provide rpcUrl or balanceReader to ZodiacsProvider.";
 
+/** Bundled symbolic metadata paired with the provider registry's token definition. */
 export interface UseZodiacTokenResult {
   readonly metadata: ZodiacMetadata;
   readonly token: ZodiacToken;
 }
 
+/** Current data, error and loading state plus a callback to repeat the read. */
 export interface AsyncHookState<T> {
   readonly data: T | null;
   readonly error: Error | null;
@@ -56,10 +62,12 @@ export interface AsyncHookState<T> {
   readonly refetch: () => void;
 }
 
+/** Legacy market hook options, retained for callers of the inactive hook. */
 export interface UseZodiacMarketOptions {
   readonly enabled?: boolean;
 }
 
+/** Legacy unavailable response shape for the inactive market hook. */
 export interface DeprecatedZodiacMarketData {
   readonly sign: ZodiacSign;
   readonly status: "unavailable";
@@ -70,21 +78,28 @@ export interface DeprecatedZodiacMarketData {
   };
 }
 
-/** @deprecated Import market helpers explicitly from @zodiacs/sdk/market. */
+/**
+ * Legacy unavailable market data type used by the inactive React hook.
+ * @deprecated Import market helpers explicitly from @zodiacs/sdk/market.
+ */
 export type ZodiacMarketData = DeprecatedZodiacMarketData;
 
-export interface UseZodiacBalanceOptions {
+/** Controls an optional balance request. Disabled reads leave the hook idle. */
+export interface UseZodiacBalanceOptions extends ReadOptions {
   readonly enabled?: boolean;
 }
 
+/** Returns the bundled official registry synchronously. */
 export function useZodiacsRegistry(): ZodiacsRegistry {
   return getZodiacsRegistry();
 }
 
+/** Memoizes the official asset and chain representations for a sign. */
 export function useOfficialZodiacToken(sign: ZodiacSign): ZodiacAsset {
   return useMemo(() => getZodiacAsset(sign), [sign]);
 }
 
+/** Checks registry membership for an optional address, returning false when absent. */
 export function useIsOfficialZodiacAddress(
   address: string | null | undefined,
   options: ZodiacAddressLookupOptions = {}
@@ -96,6 +111,7 @@ export function useIsOfficialZodiacAddress(
   );
 }
 
+/** Resolves an optional address and chain to a registry entry or null. */
 export function useZodiacRepresentation(
   address: string | null | undefined,
   options: ZodiacAddressLookupOptions = {}
@@ -107,12 +123,14 @@ export function useZodiacRepresentation(
   );
 }
 
+/** Memoizes the fixed UTC season for an instant, defaulting to the current date. */
 export function useCurrentZodiacSeason(date?: Date): ZodiacSeason {
   const time = date?.getTime() ?? null;
 
   return useMemo(() => getCurrentZodiacSeason(date), [time]);
 }
 
+/** Memoizes identity facts from supplied holdings, placements and UTC date. */
 export function useZodiacIdentityContext(
   ownership: ZodiacIdentityOwnershipInput,
   options: ZodiacIdentityContextOptions = {}
@@ -125,6 +143,7 @@ export function useZodiacIdentityContext(
   );
 }
 
+/** Memoizes a labeled receipt and wheel state from existing holdings. */
 export function useIdentityReceiptData(
   ownership: ZodiacIdentityOwnershipInput,
   options: IdentityReceiptDataOptions = {}
@@ -137,10 +156,12 @@ export function useIdentityReceiptData(
   );
 }
 
+/** Memoizes the twelve-sign display wheel for supplied holdings. */
 export function useZodiacWheelData(ownership: ZodiacIdentityOwnershipInput): ZodiacWheelData {
   return useMemo(() => getZodiacWheelData(ownership), [ownership]);
 }
 
+/** Memoizes overlap and coverage for two sets of holdings. */
 export function useCompatibilityContext(
   first: ZodiacIdentityOwnershipInput,
   second: ZodiacIdentityOwnershipInput
@@ -148,6 +169,7 @@ export function useCompatibilityContext(
   return useMemo(() => getCompatibilityContext(first, second), [first, second]);
 }
 
+/** Pairs bundled metadata with a token from the nearest provider registry. */
 export function useZodiacToken(sign: ZodiacSign): UseZodiacTokenResult {
   const { registry } = useZodiacs();
 
@@ -160,6 +182,10 @@ export function useZodiacToken(sign: ZodiacSign): UseZodiacTokenResult {
   );
 }
 
+/**
+ * Reads one native balance through the provider. A blank owner or disabled read leaves the
+ * hook idle.
+ */
 export function useZodiacBalance(
   sign: ZodiacSign,
   ownerAddress: string | null | undefined,
@@ -201,24 +227,29 @@ export function useZodiacBalance(
       return;
     }
 
-    let cancelled = false;
+    let mounted = true;
+    const controller = new AbortController();
     setState((current) => ({ ...current, error: null, loading: true }));
 
-    readZodiacBalance({
-      ownerAddress: normalizedOwnerAddress,
-      reader: balanceReader,
-      registry,
-      sign
-    })
+    runHookRead(controller, options, (signal) =>
+      readZodiacBalance({
+        ...options,
+        signal,
+        ownerAddress: normalizedOwnerAddress,
+        reader: balanceReader,
+        registry,
+        sign
+      })
+    )
       .then((data: ZodiacBalanceResult) => {
-        if (!cancelled) {
+        if (mounted) {
           const error =
             data.status === "unavailable" ? new Error(data.reason ?? "Balance unavailable.") : null;
           setState({ data, error, loading: false, refetch });
         }
       })
       .catch((error: unknown) => {
-        if (!cancelled) {
+        if (mounted) {
           setState({
             data: null,
             error: error instanceof Error ? error : new Error("Balance request failed."),
@@ -229,13 +260,26 @@ export function useZodiacBalance(
       });
 
     return () => {
-      cancelled = true;
+      mounted = false;
+      controller.abort();
     };
-  }, [balanceReader, enabled, ownerAddress, registry, sign, token, version, refetch]);
+  }, [
+    balanceReader,
+    enabled,
+    ownerAddress,
+    registry,
+    sign,
+    token,
+    version,
+    refetch,
+    options.signal,
+    options.timeoutMs
+  ]);
 
   return state;
 }
 
+/** Legacy hook returning idle state. Use the market entry point for provider reads. */
 export function useZodiacMarket(
   sign: ZodiacSign,
   _options: UseZodiacMarketOptions = {}
@@ -254,10 +298,12 @@ export function useZodiacMarket(
   return state;
 }
 
+/** Reads a single bridged balance, exposing read failures in the hook state. */
 export function useBaseZodiacBalance(
   publicClient: ZodiacsBasePublicClient | null | undefined,
   ownerAddress: string | null | undefined,
-  sign: ZodiacSign
+  sign: ZodiacSign,
+  options: BaseZodiacsReadOptions = {}
 ): AsyncHookState<BaseZodiacBalance> {
   const [version, setVersion] = useState(0);
   const refetch = useCallback(() => setVersion((current) => current + 1), []);
@@ -274,12 +320,15 @@ export function useBaseZodiacBalance(
       return;
     }
 
-    let cancelled = false;
+    let mounted = true;
+    const controller = new AbortController();
     setState((current) => ({ ...current, error: null, loading: true }));
 
-    getBaseZodiacBalance(publicClient, ownerAddress, sign)
+    runHookRead(controller, options, (signal) =>
+      getBaseZodiacBalance(publicClient, ownerAddress, sign, { ...options, signal })
+    )
       .then((data) => {
-        if (!cancelled) {
+        if (mounted) {
           const error =
             data.status === "unavailable"
               ? new Error(data.error?.message ?? "Base balance unavailable.")
@@ -288,7 +337,7 @@ export function useBaseZodiacBalance(
         }
       })
       .catch((error: unknown) => {
-        if (!cancelled) {
+        if (mounted) {
           setState({
             data: null,
             error: error instanceof Error ? error : new Error("Base balance request failed."),
@@ -299,13 +348,25 @@ export function useBaseZodiacBalance(
       });
 
     return () => {
-      cancelled = true;
+      mounted = false;
+      controller.abort();
     };
-  }, [ownerAddress, publicClient, sign, version, refetch]);
+  }, [
+    ownerAddress,
+    publicClient,
+    sign,
+    version,
+    refetch,
+    options.blockNumber,
+    options.blockTag,
+    options.signal,
+    options.timeoutMs
+  ]);
 
   return state;
 }
 
+/** Reads the Base ownership snapshot when both a client and owner are available. */
 export function useBaseZodiacsOwnership(
   publicClient: ZodiacsBasePublicClient | null | undefined,
   ownerAddress: string | null | undefined,
@@ -313,7 +374,7 @@ export function useBaseZodiacsOwnership(
 ): AsyncHookState<BaseZodiacsOwnership> {
   return useAsyncOwnership(
     publicClient && ownerAddress?.trim()
-      ? () => getBaseZodiacsOwnership(publicClient, ownerAddress, options)
+      ? (signal) => getBaseZodiacsOwnership(publicClient, ownerAddress, { ...options, signal })
       : null,
     [
       ownerAddress,
@@ -322,28 +383,31 @@ export function useBaseZodiacsOwnership(
       options.blockTag,
       options.includeZeroBalances,
       options.minBalance,
-      options.onPartialFailure,
-      options.signal
-    ]
+      options.onPartialFailure
+    ],
+    options
   );
 }
 
+/** Reads the native ownership snapshot when both a connection and owner are available. */
 export function useSolanaZodiacsOwnership(
   connection: ConnectionOrRpcUrl | null | undefined,
-  ownerAddress: string | null | undefined
+  ownerAddress: string | null | undefined,
+  options: SolanaZodiacsReadOptions = {}
 ): AsyncHookState<ZodiacsOwnership> {
   return useAsyncOwnership(
     connection && ownerAddress?.trim()
-      ? () => getSolanaZodiacsOwnership(connection, ownerAddress)
+      ? (signal) => getSolanaZodiacsOwnership(connection, ownerAddress, { ...options, signal })
       : null,
-    [connection, ownerAddress]
+    [connection, ownerAddress, options.onPartialFailure],
+    options
   );
 }
 
-export function useCrossChainZodiacsOwnership(params: {
-  readonly solana?: { readonly connection: ConnectionOrRpcUrl; readonly ownerAddress: string };
-  readonly base?: { readonly publicClient: ZodiacsBasePublicClient; readonly ownerAddress: string };
-}): AsyncHookState<CrossChainZodiacsOwnership> {
+/** Reads each configured chain with a nonblank owner and shares a cancellation deadline. */
+export function useCrossChainZodiacsOwnership(
+  params: ZodiacHoldingsByChainParams
+): AsyncHookState<CrossChainZodiacsOwnership> {
   const solanaConnection = params.solana?.connection ?? null;
   const solanaOwnerAddress = params.solana?.ownerAddress.trim() ?? "";
   const basePublicClient = params.base?.publicClient ?? null;
@@ -354,23 +418,20 @@ export function useCrossChainZodiacsOwnership(params: {
 
   return useAsyncOwnership(
     enabled
-      ? async () => {
-          const [solana, base] = await Promise.all([
-            solanaConnection && solanaOwnerAddress
-              ? getSolanaZodiacsOwnership(solanaConnection, solanaOwnerAddress)
-              : Promise.resolve(undefined),
-            basePublicClient && baseOwnerAddress
-              ? getBaseZodiacsOwnership(basePublicClient, baseOwnerAddress)
-              : Promise.resolve(undefined)
-          ]);
-
-          return {
-            ...(solana ? { solana } : {}),
-            ...(base ? { base } : {})
-          };
-        }
+      ? (signal) =>
+          getCrossChainZodiacsOwnership({
+            ...(solanaConnection && solanaOwnerAddress
+              ? { solana: { connection: solanaConnection, ownerAddress: solanaOwnerAddress } }
+              : {}),
+            ...(basePublicClient && baseOwnerAddress
+              ? { base: { publicClient: basePublicClient, ownerAddress: baseOwnerAddress } }
+              : {}),
+            ...(params.timeoutMs === undefined ? {} : { timeoutMs: params.timeoutMs }),
+            signal
+          })
       : null,
-    [solanaConnection, solanaOwnerAddress, basePublicClient, baseOwnerAddress]
+    [solanaConnection, solanaOwnerAddress, basePublicClient, baseOwnerAddress],
+    params
   );
 }
 
@@ -389,8 +450,9 @@ function unavailableZodiacBalanceResult(
 }
 
 function useAsyncOwnership<T>(
-  loader: (() => Promise<T>) | null,
-  deps: readonly unknown[]
+  loader: ((signal: AbortSignal) => Promise<T>) | null,
+  deps: readonly unknown[],
+  options: ReadOptions
 ): AsyncHookState<T> {
   const [version, setVersion] = useState(0);
   const refetch = useCallback(() => setVersion((current) => current + 1), []);
@@ -407,17 +469,18 @@ function useAsyncOwnership<T>(
       return;
     }
 
-    let cancelled = false;
+    let mounted = true;
+    const controller = new AbortController();
     setState((current) => ({ ...current, error: null, loading: true }));
 
-    loader()
+    runHookRead(controller, options, loader)
       .then((data) => {
-        if (!cancelled) {
+        if (mounted) {
           setState({ data, error: null, loading: false, refetch });
         }
       })
       .catch((error: unknown) => {
-        if (!cancelled) {
+        if (mounted) {
           setState({
             data: null,
             error: error instanceof Error ? error : new Error("Zodiacs ownership request failed."),
@@ -428,9 +491,26 @@ function useAsyncOwnership<T>(
       });
 
     return () => {
-      cancelled = true;
+      mounted = false;
+      controller.abort();
     };
-  }, [...deps, version, refetch]);
+  }, [...deps, version, refetch, options.signal, options.timeoutMs]);
 
   return state;
+}
+
+async function runHookRead<T>(
+  controller: AbortController,
+  options: ReadOptions,
+  load: (signal: AbortSignal) => Promise<T>
+): Promise<T> {
+  const caller = options.signal;
+  const abort = () => controller.abort(caller?.reason);
+  if (caller?.aborted) abort();
+  else caller?.addEventListener("abort", abort);
+  try {
+    return await load(controller.signal);
+  } finally {
+    caller?.removeEventListener("abort", abort);
+  }
 }

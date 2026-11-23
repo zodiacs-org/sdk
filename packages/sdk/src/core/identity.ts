@@ -42,56 +42,72 @@ interface OwnershipLike {
   readonly confirmedAbsentSigns?: readonly ZodiacSign[];
 }
 
+/**
+ * A holdings list or a pair of optional chain snapshots used for local identity
+ * calculations.
+ */
 export type ZodiacIdentityOwnershipInput = OwnershipLike | CrossChainZodiacsOwnership;
 
+/** Optional UTC season date and chart placements. Omit the date to use the current instant. */
 export interface ZodiacIdentityContextOptions extends ZodiacIdentityAlignmentInput {
   readonly date?: Date;
 }
 
+/** Adds an optional display label to the identity context inputs. */
 export interface IdentityReceiptDataOptions extends ZodiacIdentityContextOptions {
   readonly label?: string;
 }
 
+/** Adds an optional public address for display alongside wallet context. */
 export interface ConsumerSafeWalletContextOptions extends ZodiacIdentityContextOptions {
   readonly publicAddress?: string;
 }
 
+/** Filters a single ownership list to its held entries, preserving input order. */
 export function getZodiacShelf<T extends OwnershipLike>(ownership: T): readonly HoldingLike[] {
   return ownership.holdings.filter((holding) => holding.held);
 }
 
+/** Counts unique held signs by element, including zero counts. */
 export function getElementComposition(ownership: OwnershipLike): Record<ZodiacElement, number> {
   return getComposition(toUniqueOwnershipLike(ownership), "element");
 }
 
+/** Counts unique held signs by modality, including zero counts. */
 export function getModalityComposition(ownership: OwnershipLike): Record<ZodiacModality, number> {
   return getComposition(toUniqueOwnershipLike(ownership), "modality");
 }
 
+/** Returns the most frequent held element, or null for a tie or empty shelf. */
 export function getDominantElement(ownership: OwnershipLike): ZodiacElement | null {
   return getDominantCompositionKey(getElementComposition(ownership));
 }
 
+/** Returns the most frequent held modality, or null for a tie or empty shelf. */
 export function getDominantModality(ownership: OwnershipLike): ZodiacModality | null {
   return getDominantCompositionKey(getModalityComposition(ownership));
 }
 
+/** Counts held entries in the supplied holdings list. */
 export function getTotalHeld(ownership: OwnershipLike): number {
   return getZodiacShelf(ownership).length;
 }
 
+/** Lists distinct elements represented among held entries. */
 export function getHeldElements(ownership: OwnershipLike): readonly ZodiacElement[] {
   return unique(
     getZodiacShelf(ownership).map((holding) => getZodiacAsset(holding.sign).metadata.element)
   );
 }
 
+/** Lists distinct modalities represented among held entries. */
 export function getHeldModalities(ownership: OwnershipLike): readonly ZodiacModality[] {
   return unique(
     getZodiacShelf(ownership).map((holding) => getZodiacAsset(holding.sign).metadata.modality)
   );
 }
 
+/** Reports whether the supplied sun sign occurs in a held entry. */
 export function getOwnSignStatus(
   ownership: OwnershipLike,
   sunSign: ZodiacSign
@@ -108,6 +124,7 @@ export function getOwnSignStatus(
   };
 }
 
+/** Returns twelve sign and held-flag pairs in zodiac order. */
 export function getZodiacWheelState(ownership: OwnershipLike): readonly {
   readonly sign: ZodiacSign;
   readonly held: boolean;
@@ -120,6 +137,7 @@ export function getZodiacWheelState(ownership: OwnershipLike): readonly {
   }));
 }
 
+/** Builds a twelve-sign wheel with provenance, confirmed absence and percentage coverage. */
 export function getZodiacWheelData(ownership: ZodiacIdentityOwnershipInput): ZodiacWheelData {
   const crossChain = isCrossChainOwnership(ownership) ? ownership : null;
   const normalizedOwnership = toOwnershipLike(ownership);
@@ -151,6 +169,7 @@ export function getZodiacWheelData(ownership: ZodiacIdentityOwnershipInput): Zod
   };
 }
 
+/** Combines identity facts with a label and twelve-sign wheel state. */
 export function getIdentityReceiptData(
   ownership: ZodiacIdentityOwnershipInput,
   options: IdentityReceiptDataOptions = {}
@@ -164,6 +183,7 @@ export function getIdentityReceiptData(
   };
 }
 
+/** Returns the displayable label/value facts from the identity context. */
 export function getIdentityReceiptFacts(
   ownership: ZodiacIdentityOwnershipInput,
   options: ZodiacIdentityContextOptions = {}
@@ -171,6 +191,7 @@ export function getIdentityReceiptFacts(
   return getZodiacIdentityContext(ownership, options).receiptFacts;
 }
 
+/** Selects title, description, season and receipt facts for a share card. */
 export function getShareCardContext(
   ownership: ZodiacIdentityOwnershipInput,
   options: ZodiacIdentityContextOptions = {}
@@ -188,6 +209,7 @@ export function getShareCardContext(
   };
 }
 
+/** Builds display text and optional public ownership facts for a connected wallet. */
 export function getConsumerSafeWalletContext(
   ownership: ZodiacIdentityOwnershipInput,
   options: ConsumerSafeWalletContextOptions = {}
@@ -230,6 +252,10 @@ export function getConsumerSafeWalletContext(
   };
 }
 
+/**
+ * Summarizes unique signs, composition, provenance, UTC season and optional placement
+ * alignments from supplied holdings.
+ */
 export function getZodiacIdentityContext(
   ownership: ZodiacIdentityOwnershipInput,
   options: ZodiacIdentityContextOptions = {}
@@ -291,6 +317,7 @@ export function getZodiacIdentityContext(
   };
 }
 
+/** Returns the same local ownership and season summary as getZodiacIdentityContext. */
 export function getZodiacReadingContext(
   ownership: ZodiacIdentityOwnershipInput,
   options: ZodiacIdentityContextOptions = {}
@@ -298,6 +325,7 @@ export function getZodiacReadingContext(
   return getZodiacIdentityContext(ownership, options);
 }
 
+/** Merges native and bridged snapshots into one item per sign, preserving both held flags. */
 export function getCrossChainZodiacShelf(
   ownershipByChain: CrossChainZodiacsOwnership
 ): UnifiedZodiacShelf {
@@ -328,8 +356,10 @@ export function getCrossChainZodiacShelf(
   };
 }
 
+/** Alias of getCrossChainZodiacShelf for already-read chain snapshots. */
 export const mergeZodiacsOwnership = getCrossChainZodiacShelf;
 
+/** Counts unique held signs and representation positions across both chains. */
 export function getNativeAndBridgedSummary(
   ownershipByChain: CrossChainZodiacsOwnership
 ): ZodiacNativeBridgedSummary {
@@ -341,6 +371,7 @@ export function getNativeAndBridgedSummary(
   );
 }
 
+/** Relates the held signs to the current and next UTC calendar seasons. */
 export function getSeasonalContext(
   ownership: ZodiacIdentityOwnershipInput,
   options: ZodiacIdentityContextOptions = {}
@@ -358,6 +389,10 @@ export function getSeasonalContext(
   };
 }
 
+/**
+ * Compares two shelves by shared signs, elements and modalities and returns percentage
+ * overlap and coverage.
+ */
 export function getCompatibilityContext(
   first: ZodiacIdentityOwnershipInput,
   second: ZodiacIdentityOwnershipInput

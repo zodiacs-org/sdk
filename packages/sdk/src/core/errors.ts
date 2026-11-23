@@ -1,3 +1,4 @@
+/** Stable diagnostic codes used by SDK validation and read errors. */
 export type ZodiacsValidationErrorCode =
   | "invalid-zodiac-sign"
   | "invalid-wallet-address"
@@ -10,6 +11,7 @@ export type ZodiacsValidationErrorCode =
   | "zodiac-read-unavailable"
   | "zodiac-registry-integrity";
 
+/** Base SDK error carrying a machine-readable code and message. */
 export class ZodiacsError extends Error {
   override readonly name: string = "ZodiacsError";
   readonly code: string;
@@ -20,6 +22,7 @@ export class ZodiacsError extends Error {
   }
 }
 
+/** An input or configuration error with a typed SDK diagnostic code. */
 export class ZodiacsValidationError extends ZodiacsError {
   override readonly name: string = "ZodiacsValidationError";
 
@@ -28,6 +31,7 @@ export class ZodiacsValidationError extends ZodiacsError {
   }
 }
 
+/** Indicates a sign that cannot be normalized to a registry slug. */
 export class InvalidZodiacSignError extends ZodiacsValidationError {
   override readonly name: string = "InvalidZodiacSignError";
 
@@ -36,6 +40,7 @@ export class InvalidZodiacSignError extends ZodiacsValidationError {
   }
 }
 
+/** Indicates an address that fails normalization for the selected chain. */
 export class InvalidZodiacAddressError extends ZodiacsValidationError {
   override readonly name: string = "InvalidZodiacAddressError";
 
@@ -44,6 +49,7 @@ export class InvalidZodiacAddressError extends ZodiacsValidationError {
   }
 }
 
+/** Indicates a chain outside the SDK's supported networks. */
 export class UnsupportedZodiacsChainError extends ZodiacsValidationError {
   override readonly name: string = "UnsupportedZodiacsChainError";
 
@@ -52,10 +58,12 @@ export class UnsupportedZodiacsChainError extends ZodiacsValidationError {
   }
 }
 
+/** Concrete unsupported-network error raised by Base reads and counterpart lookups. */
 export class UnsupportedChainError extends UnsupportedZodiacsChainError {
   override readonly name: string = "UnsupportedChainError";
 }
 
+/** Indicates that an address has no matching official registry entry. */
 export class UnofficialZodiacAddressError extends ZodiacsValidationError {
   override readonly name: string = "UnofficialZodiacAddressError";
 
@@ -67,10 +75,12 @@ export class UnofficialZodiacAddressError extends ZodiacsValidationError {
   }
 }
 
+/** Raised by assertOfficialZodiacAddress when lookup fails. */
 export class UnknownZodiacAddressError extends UnofficialZodiacAddressError {
   override readonly name: string = "UnknownZodiacAddressError";
 }
 
+/** Represents a failed read with the zodiac-read-unavailable code. */
 export class ZodiacReadUnavailableError extends ZodiacsError {
   override readonly name: string = "ZodiacReadUnavailableError";
 
@@ -79,6 +89,7 @@ export class ZodiacReadUnavailableError extends ZodiacsError {
   }
 }
 
+/** Carries per-sign read diagnostics when the caller selects the throw failure mode. */
 export class PartialOwnershipReadError extends ZodiacsError {
   override readonly name: string = "PartialOwnershipReadError";
 
@@ -90,6 +101,7 @@ export class PartialOwnershipReadError extends ZodiacsError {
   }
 }
 
+/** Indicates that registry data violates an integrity rule. */
 export class ZodiacRegistryIntegrityError extends ZodiacsError {
   override readonly name: string = "ZodiacRegistryIntegrityError";
 
@@ -98,6 +110,7 @@ export class ZodiacRegistryIntegrityError extends ZodiacsError {
   }
 }
 
+/** Raised by schema assertions and normalization for invalid registry data. */
 export class RegistryInvariantError extends ZodiacRegistryIntegrityError {
   override readonly name: string = "RegistryInvariantError";
 }

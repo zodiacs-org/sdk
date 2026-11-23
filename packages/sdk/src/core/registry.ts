@@ -12,6 +12,7 @@ const marketLinks = (mintAddress: string) => ({
   jupiter: `https://jup.ag/tokens/${mintAddress}`
 });
 
+/** Built-in native Solana token definitions in zodiac order, starting with Aries. */
 export const DEFAULT_ZODIAC_TOKENS = [
   {
     sign: "aries",
@@ -208,9 +209,11 @@ export const DEFAULT_ZODIAC_TOKENS = [
   }
 ] as const satisfies readonly ZodiacToken[];
 
+/** Built-in lookup table of Solana token definitions keyed by sign. */
 export const DEFAULT_ZODIAC_TOKEN_REGISTRY: ZodiacTokenRegistry =
   createZodiacTokenRegistry(DEFAULT_ZODIAC_TOKENS);
 
+/** Builds a sign-indexed map. Invalid tokens and duplicate signs throw. */
 export function createZodiacTokenRegistry(tokens: readonly ZodiacToken[]): ZodiacTokenRegistry {
   const registry = new Map<ZodiacSign, ZodiacToken>();
 
@@ -231,6 +234,10 @@ export function createZodiacTokenRegistry(tokens: readonly ZodiacToken[]): Zodia
   return registry;
 }
 
+/**
+ * Builds a validated map with later overrides replacing earlier definitions for the same
+ * sign.
+ */
 export function mergeZodiacTokenRegistry(
   overrides: readonly ZodiacToken[],
   baseRegistry: ZodiacTokenRegistry = DEFAULT_ZODIAC_TOKEN_REGISTRY
@@ -243,6 +250,7 @@ export function mergeZodiacTokenRegistry(
   );
 }
 
+/** Looks up a sign in the supplied or default registry. A missing entry throws. */
 export function getZodiacToken(
   sign: ZodiacSign,
   registry: ZodiacTokenRegistry = DEFAULT_ZODIAC_TOKEN_REGISTRY
@@ -256,12 +264,14 @@ export function getZodiacToken(
   return token;
 }
 
+/** Lists tokens in zodiac order and throws if any sign is missing from the registry. */
 export function getAllZodiacTokens(
   registry: ZodiacTokenRegistry = DEFAULT_ZODIAC_TOKEN_REGISTRY
 ): readonly ZodiacToken[] {
   return ZODIAC_SIGNS.map((sign) => getZodiacToken(sign, registry));
 }
 
+/** Returns the configured Solana mint for a sign. A missing registry entry throws. */
 export function getMintAddress(
   sign: ZodiacSign,
   registry: ZodiacTokenRegistry = DEFAULT_ZODIAC_TOKEN_REGISTRY
@@ -269,12 +279,15 @@ export function getMintAddress(
   return getZodiacToken(sign, registry).mintAddress;
 }
 
+/** Alias of getMintAddress for the configured Solana registry. */
 export const lookupZodiacMintAddress = getMintAddress;
 
+/** Checks the token list for field errors, duplicates and missing signs. */
 export function validateZodiacRegistry(
   tokens: readonly ZodiacToken[] = DEFAULT_ZODIAC_TOKENS
 ): ZodiacRegistryValidationResult {
   const errors: string[] = [];
+  if (!Array.isArray(tokens)) return { valid: false, errors: ["Expected a token list."] };
   const signs = new Set<ZodiacSign>();
   const mints = new Set<string>();
   const orders = new Set<number>();
@@ -284,6 +297,10 @@ export function validateZodiacRegistry(
   }
 
   for (const token of tokens) {
+    if (!token || typeof token !== "object") {
+      errors.push("Token must be an object.");
+      continue;
+    }
     for (const error of validateZodiacToken(token)) {
       errors.push(`${token.sign}: ${error}`);
     }

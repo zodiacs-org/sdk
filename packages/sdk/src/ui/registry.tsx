@@ -6,6 +6,7 @@ import {
   getModalityComposition,
   getNativeCounterpart,
   getRepresentationByAddress,
+  isOfficialZodiacRepresentation,
   getZodiacAsset,
   getZodiacWheelData,
   getZodiacWheelState,
@@ -21,6 +22,10 @@ import {
 } from "../core/index.js";
 import { labelStyle, mutedTextStyle, surfaceStyle } from "./styles.js";
 
+/**
+ * Selects a wheel item, sign or representation and optional held-state override for a token
+ * card.
+ */
 export interface ZodiacTokenCardProps {
   readonly item?: ZodiacWheelDataItem;
   readonly sign?: ZodiacSign;
@@ -29,21 +34,25 @@ export interface ZodiacTokenCardProps {
   readonly style?: CSSProperties;
 }
 
+/** Provides the computed identity context and optional styling for a profile summary. */
 export interface ProfileSummaryCardProps {
   readonly context: ZodiacIdentityContext;
   readonly style?: CSSProperties;
 }
 
+/** Provides identity or receipt data to render a share-card preview. */
 export interface ShareCardPreviewProps {
   readonly context: ZodiacIdentityContext | IdentityReceiptData;
   readonly style?: CSSProperties;
 }
 
+/** Provides a computed comparison and optional styling for its display. */
 export interface CompatibilityWheelProps {
   readonly compatibility: ZodiacCompatibilityContext;
   readonly style?: CSSProperties;
 }
 
+/** Labels a supplied representation or resolves an address against the official registry. */
 export function OfficialZodiacBadge({
   address,
   representation,
@@ -56,7 +65,7 @@ export function OfficialZodiacBadge({
   const resolved =
     representation ?? (address ? getRepresentationByAddress(address, options) : null);
 
-  if (!resolved) {
+  if (!resolved || !isOfficialZodiacRepresentation(resolved, options)) {
     return <span style={badgeStyle}>Not found in the official Zodiacs.org registry</span>;
   }
 
@@ -69,6 +78,7 @@ export function OfficialZodiacBadge({
   );
 }
 
+/** Displays the representation kind as Native or Bridged. */
 export function ZodiacRepresentationBadge({
   representation
 }: {
@@ -77,6 +87,7 @@ export function ZodiacRepresentationBadge({
   return <span style={badgeStyle}>{representation.kind === "native" ? "Native" : "Bridged"}</span>;
 }
 
+/** Displays the chain name of a supplied representation. */
 export function ZodiacChainBadge({
   representation
 }: {
@@ -85,6 +96,7 @@ export function ZodiacChainBadge({
   return <span style={badgeStyle}>{representation.chain === "solana" ? "Solana" : "Base"}</span>;
 }
 
+/** Displays the bridge route and protocol, or identifies a native Solana entry. */
 export function ZodiacBridgeProvenance({
   representation
 }: {
@@ -102,6 +114,7 @@ export function ZodiacBridgeProvenance({
   );
 }
 
+/** Displays the official registry asset for a sign and chain, defaulting to Solana. */
 export function OfficialZodiacTokenCard({
   sign,
   chain = "solana",
@@ -127,6 +140,7 @@ export function OfficialZodiacTokenCard({
   );
 }
 
+/** Displays a sign and held status from a wheel item or explicit props. */
 export function ZodiacTokenCard({ item, sign, representation, held, style }: ZodiacTokenCardProps) {
   const resolvedSign = item?.sign ?? sign ?? representation?.sign;
 
@@ -161,6 +175,7 @@ export function ZodiacTokenCard({ item, sign, representation, held, style }: Zod
   );
 }
 
+/** Displays all twelve official token cards for the selected chain. */
 export function OfficialZodiacsGrid({ chain = "solana" }: { readonly chain?: "solana" | "base" }) {
   return (
     <section
@@ -192,6 +207,10 @@ export function OfficialZodiacsGrid({ chain = "solana" }: { readonly chain?: "so
   );
 }
 
+/**
+ * Looks up an address locally and displays its registered counterparts or an unverified
+ * warning.
+ */
 export function ZodiacAddressVerifier({
   address,
   options
@@ -224,6 +243,7 @@ export function ZodiacAddressVerifier({
   );
 }
 
+/** Displays an unrecognized-address message with the supplied address when available. */
 export function UnverifiedZodiacWarning({ address }: { readonly address?: string }) {
   return (
     <article style={{ ...surfaceStyle, padding: 16 }}>
@@ -237,6 +257,7 @@ export function UnverifiedZodiacWarning({ address }: { readonly address?: string
   );
 }
 
+/** Lists the held signs from a supplied wheel or ownership snapshot. */
 export function ZodiacShelf({
   ownership,
   wheel
@@ -257,6 +278,7 @@ export function ZodiacShelf({
   );
 }
 
+/** Displays the twelve-sign wheel from the supplied ownership or wheel data. */
 export function ZodiacWheel({
   ownership,
   wheel
@@ -279,6 +301,7 @@ export function ZodiacWheel({
   );
 }
 
+/** Displays counts of held signs grouped by element. */
 export function ZodiacElementComposition({
   ownership
 }: {
@@ -289,6 +312,7 @@ export function ZodiacElementComposition({
   return <Composition title="Element mix" composition={getElementComposition(ownership)} />;
 }
 
+/** Displays counts of held signs grouped by modality. */
 export function ZodiacModalityComposition({
   ownership
 }: {
@@ -299,6 +323,7 @@ export function ZodiacModalityComposition({
   return <Composition title="Modality mix" composition={getModalityComposition(ownership)} />;
 }
 
+/** Displays labeled facts from a supplied receipt or derives a receipt from holdings. */
 export function IdentityReceiptCard({
   ownership,
   receipt
@@ -321,6 +346,7 @@ export function IdentityReceiptCard({
   );
 }
 
+/** Displays coverage and ownership facts from an existing identity context. */
 export function ProfileSummaryCard({ context, style }: ProfileSummaryCardProps) {
   return (
     <article style={{ ...surfaceStyle, display: "grid", gap: 10, padding: 16, ...style }}>
@@ -334,6 +360,7 @@ export function ProfileSummaryCard({ context, style }: ProfileSummaryCardProps) 
   );
 }
 
+/** Renders a shareable summary using an existing identity or receipt context. */
 export function ShareCardPreview({ context, style }: ShareCardPreviewProps) {
   return (
     <article
@@ -362,6 +389,7 @@ export function ShareCardPreview({ context, style }: ShareCardPreviewProps) {
   );
 }
 
+/** Displays shared signs and overlap for two already-compared shelves. */
 export function CompatibilityWheel({ compatibility, style }: CompatibilityWheelProps) {
   return (
     <article style={{ ...surfaceStyle, display: "grid", gap: 12, padding: 16, ...style }}>

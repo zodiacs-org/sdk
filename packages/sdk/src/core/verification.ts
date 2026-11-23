@@ -14,10 +14,15 @@ import {
 } from "./address.js";
 import type { ZodiacChain, ZodiacRepresentation, ZodiacSign } from "./types.js";
 
+/** Restricts a registry address lookup to the supplied chain. Omit to search both. */
 export interface ZodiacAddressLookupOptions {
   readonly chain?: ZodiacChain;
 }
 
+/**
+ * Normalizes an address and returns its registry entry, or null for malformed or unknown
+ * input.
+ */
 export function getRepresentationByAddress(
   address: string,
   options: ZodiacAddressLookupOptions = {}
@@ -39,6 +44,10 @@ export function getRepresentationByAddress(
   );
 }
 
+/**
+ * Checks an address or the identifying fields of a representation against the bundled
+ * registry.
+ */
 export function isOfficialZodiacRepresentation(
   value: ZodiacRepresentation | string | null | undefined,
   options: ZodiacAddressLookupOptions = {}
@@ -67,6 +76,7 @@ export function isOfficialZodiacRepresentation(
   );
 }
 
+/** Checks whether an address resolves to an official representation on the selected chain. */
 export function isOfficialZodiacAddress(
   address: string,
   options: ZodiacAddressLookupOptions = {}
@@ -74,6 +84,7 @@ export function isOfficialZodiacAddress(
   return getRepresentationByAddress(address, options) !== null;
 }
 
+/** Checks whether an address resolves to a native Solana registry entry. */
 export function isNativeZodiacAddress(
   address: string,
   options: ZodiacAddressLookupOptions = {}
@@ -82,6 +93,7 @@ export function isNativeZodiacAddress(
   return representation?.kind === "native";
 }
 
+/** Checks whether an address resolves to a bridged Base registry entry. */
 export function isBridgedZodiacAddress(
   address: string,
   options: ZodiacAddressLookupOptions = {}
@@ -90,19 +102,23 @@ export function isBridgedZodiacAddress(
   return representation?.kind === "bridged";
 }
 
+/** Checks an EVM address against the official Base entries. */
 export function isOfficialBaseZodiacAddress(address: string): boolean {
   return isOfficialZodiacAddress(address, { chain: "base" });
 }
 
+/** Checks a case-sensitive mint against the official native Solana entries. */
 export function isOfficialSolanaZodiacMint(address: string): boolean {
   return isOfficialZodiacAddress(address, { chain: "solana" });
 }
 
+/** Returns the official asset matching an address, or null for an unrecognized address. */
 export function getZodiacAssetByAddress(address: string, options: ZodiacAddressLookupOptions = {}) {
   const representation = getRepresentationByAddress(address, options);
   return representation ? getZodiacAsset(representation.sign) : null;
 }
 
+/** Returns the sign associated with an official address, or null if it cannot be resolved. */
 export function getZodiacSignByAddress(
   address: string,
   options: ZodiacAddressLookupOptions = {}
@@ -110,6 +126,10 @@ export function getZodiacSignByAddress(
   return getRepresentationByAddress(address, options)?.sign ?? null;
 }
 
+/**
+ * Returns the registry entry or throws UnknownZodiacAddressError for an unrecognized
+ * address.
+ */
 export function assertOfficialZodiacAddress(
   address: string,
   options: ZodiacAddressLookupOptions = {}
@@ -123,6 +143,10 @@ export function assertOfficialZodiacAddress(
   return representation;
 }
 
+/**
+ * Returns bridge metadata for a sign on the target chain, or null for an entry without a
+ * bridge.
+ */
 export function getBridgeProvenance(
   sign: ZodiacSign,
   targetChain: ZodiacChain
@@ -131,6 +155,7 @@ export function getBridgeProvenance(
   return representation?.bridge ?? null;
 }
 
+/** Resolves an official address to its native Solana origin, or null if unknown. */
 export function getOriginForRepresentation(
   address: string,
   options: ZodiacAddressLookupOptions = {}
@@ -146,8 +171,13 @@ export function getOriginForRepresentation(
     : getNativeZodiacRepresentation(representation.sign);
 }
 
+/** Alias of getOriginForRepresentation for resolving a registered address to its native mint. */
 export const getNativeCounterpart = getOriginForRepresentation;
 
+/**
+ * Selects the native entry for Solana or the bridged entry for Base. An unsupported chain
+ * throws UnsupportedChainError.
+ */
 export function getBridgedCounterpart(
   sign: ZodiacSign,
   targetChain: ZodiacChain
@@ -163,10 +193,12 @@ export function getBridgedCounterpart(
   throw new UnsupportedChainError(targetChain);
 }
 
+/** Returns a sign's native Solana entry followed by its official Base entry. */
 export function getCounterparts(sign: ZodiacSign): readonly ZodiacRepresentation[] {
   return [getNativeZodiacRepresentation(sign), getBaseZodiacRepresentation(sign)];
 }
 
+/** Groups the canonical origin and official bridged entries for one sign. */
 export function getZodiacProvenance(sign: ZodiacSign): {
   readonly sign: ZodiacSign;
   readonly native: ZodiacRepresentation;

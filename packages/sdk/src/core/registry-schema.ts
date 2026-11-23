@@ -14,6 +14,7 @@ import {
   type ZodiacsSupportedChain
 } from "./types.js";
 
+/** Machine-readable category of an official registry schema violation. */
 export type RegistryInvariantCode =
   | "invalid-registry"
   | "invalid-supported-chain"
@@ -29,12 +30,14 @@ export type RegistryInvariantCode =
   | "invalid-base-representation"
   | "invalid-origin";
 
+/** One violated rule with a path to the affected value and a diagnostic message. */
 export interface RegistryInvariantIssue {
   readonly code: RegistryInvariantCode;
   readonly path: string;
   readonly message: string;
 }
 
+/** Aggregated validation outcome with structured issues and readable errors. */
 export interface RuntimeRegistryValidationResult {
   readonly valid: boolean;
   readonly issues: readonly RegistryInvariantIssue[];
@@ -44,6 +47,10 @@ export interface RuntimeRegistryValidationResult {
 const elementSet = new Set<ZodiacElement>(["fire", "earth", "air", "water"]);
 const modalitySet = new Set<ZodiacModality>(["cardinal", "fixed", "mutable"]);
 
+/**
+ * Checks unknown registry data and collects violations with field paths. Defaults to the
+ * bundled registry.
+ */
 export function validateZodiacsRegistrySchema(
   registry: unknown = ZODIACS_REGISTRY
 ): RuntimeRegistryValidationResult {
@@ -99,6 +106,7 @@ export function validateZodiacsRegistrySchema(
   return toResult(issues);
 }
 
+/** Narrows unknown data to the official registry schema or throws RegistryInvariantError. */
 export function assertValidZodiacsRegistrySchema(
   registry: unknown = ZODIACS_REGISTRY
 ): asserts registry is ZodiacsRegistry {
@@ -109,6 +117,10 @@ export function assertValidZodiacsRegistrySchema(
   }
 }
 
+/**
+ * Validates the registry, canonicalizes address spelling and returns entries in zodiac
+ * order. Violations throw RegistryInvariantError.
+ */
 export function normalizeZodiacsRegistry(
   registry: ZodiacsRegistry = ZODIACS_REGISTRY
 ): ZodiacsRegistry {

@@ -13,6 +13,14 @@ import { isZodiacSign, normalizeZodiacSign, assertZodiacSign } from "./validatio
 import { InvalidZodiacSignError } from "./errors.js";
 
 describe("zodiac token registry", () => {
+  it("reports malformed registry fields and non-object rows without throwing", () => {
+    for (const row of [null, 123, { name: 1 }, { ...DEFAULT_ZODIAC_TOKENS[0], ticker: 123 }]) {
+      expect(validateZodiacRegistry([row as never]).valid).toBe(false);
+    }
+    expect(normalizeZodiacSign(null as never)).toBeNull();
+    expect(() => assertZodiacSign(null as never)).toThrow(InvalidZodiacSignError);
+  });
+
   it("narrows only canonical sign keys and normalizes user input explicitly", () => {
     for (const sign of ZODIAC_SIGNS) {
       expect(isZodiacSign(sign)).toBe(true);

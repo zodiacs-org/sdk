@@ -4,6 +4,7 @@ import { copyFileSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { basename, dirname, join } from "node:path";
 import { parseEnv } from "node:util";
 import { build } from "esbuild";
+import { checkApiComments } from "./check-api-comments.mjs";
 import { snippets } from "./markdown-snippets.mjs";
 import { repoRoot, tsc, withPackedConsumer } from "./packed-consumer.mjs";
 
@@ -12,6 +13,7 @@ const installCommands = blocks
   .filter((b) => b.language === "sh" && !/^(docs|apps|examples)\//.test(b.path))
   .map((b) => b.code);
 await withPackedConsumer(async ({ cwd, addPeers }) => {
+  checkApiComments(join(cwd, "node_modules/@zodiacs/sdk"));
   addPeers("viem", "react", "react-dom", "@types/react", "@types/node", "@zodiacs/engine");
   const registry = JSON.parse(
     readFileSync(join(cwd, "node_modules/@zodiacs/sdk/registry/zodiacs.registry.json"))

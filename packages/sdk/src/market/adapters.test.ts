@@ -152,6 +152,13 @@ describe("market adapters", () => {
     }
   });
 
+  it("classifies malformed provider containers as invalid responses", async () => {
+    for (const adapter of [createJupiterMarketAdapter, createDexScreenerMarketAdapter]) {
+      const provider = adapter({ fetchImpl: async () => Response.json([]) });
+      expect((await provider.readMarket(options)).error?.code).toBe("invalid-response");
+    }
+  });
+
   it("distinguishes missing prices from malformed values and preserves a real zero", async () => {
     for (const price of [true, [], {}, " ", "0xff", -1, "0", "1e-3"]) {
       const adapters = [

@@ -1,3 +1,6 @@
+import type { ReadOptions } from "./read-options.js";
+
+/** Ordered lowercase registry slugs, from Aries through Pisces. */
 export const ZODIAC_SIGNS = [
   "aries",
   "taurus",
@@ -13,18 +16,25 @@ export const ZODIAC_SIGNS = [
   "pisces"
 ] as const;
 
+/** One of the twelve lowercase keys in ZODIAC_SIGNS. */
 export type ZodiacSign = (typeof ZODIAC_SIGNS)[number];
 
+/** Element used to group signs in identity composition. */
 export type ZodiacElement = "fire" | "earth" | "air" | "water";
 
+/** Modality used to group signs in identity composition. */
 export type ZodiacModality = "cardinal" | "fixed" | "mutable";
 
+/** Chain name used for registry lookups and ownership provenance. */
 export type ZodiacChain = "solana" | "base";
 
+/** Distinguishes a token's native origin from its official bridged representation. */
 export type ZodiacRepresentationKind = "native" | "bridged";
 
+/** Registry spelling of the Solana or Base token standard. */
 export type ZodiacTokenStandard = "SPL" | "ERC20";
 
+/** Provenance of an official bridge from the native mint to Base. */
 export interface ZodiacBridgeMetadata {
   readonly status: "official-bridged";
   readonly protocol?: "wormhole";
@@ -33,6 +43,7 @@ export interface ZodiacBridgeMetadata {
   readonly notes?: string;
 }
 
+/** Chain-specific registry entry, including address, token standard and origin. */
 export interface ZodiacRepresentation {
   readonly sign: ZodiacSign;
   readonly chain: ZodiacChain;
@@ -50,6 +61,7 @@ export interface ZodiacRepresentation {
   readonly bridge?: ZodiacBridgeMetadata;
 }
 
+/** Display attributes shared by a sign's native and bridged entries. */
 export interface ZodiacAssetMetadata {
   readonly element: ZodiacElement;
   readonly modality: ZodiacModality;
@@ -59,6 +71,7 @@ export interface ZodiacAssetMetadata {
   readonly shortBio?: string;
 }
 
+/** A sign's metadata, canonical native origin and complete set of chain representations. */
 export interface ZodiacAsset {
   readonly sign: ZodiacSign;
   readonly displayName: string;
@@ -67,6 +80,7 @@ export interface ZodiacAsset {
   readonly representations: readonly ZodiacRepresentation[];
 }
 
+/** Registry description of a supported chain and its representation standard. */
 export interface ZodiacsSupportedChain {
   readonly chain: ZodiacChain;
   readonly chainId?: number;
@@ -74,6 +88,7 @@ export interface ZodiacsSupportedChain {
   readonly tokenStandard: ZodiacTokenStandard;
 }
 
+/** Versioned registry containing supported chains and the twelve official assets. */
 export interface ZodiacsRegistry {
   readonly name: "Zodiacs Official Registry";
   readonly source: "https://zodiacs.org";
@@ -84,16 +99,19 @@ export interface ZodiacsRegistry {
   readonly assets: readonly ZodiacAsset[];
 }
 
+/** Provider URLs attached to a native token definition. */
 export interface ZodiacMarketLinks {
   readonly dexScreener: string;
   readonly jupiter: string;
 }
 
+/** Inclusive month-day strings (MM-DD) for a fixed UTC calendar season. */
 export interface ZodiacDateRange {
   readonly starts: string;
   readonly ends: string;
 }
 
+/** Display name, glyph, calendar range and symbolic attributes for one sign. */
 export interface ZodiacMetadata {
   readonly sign: ZodiacSign;
   readonly name: string;
@@ -104,6 +122,7 @@ export interface ZodiacMetadata {
   readonly assetLine: string;
 }
 
+/** Native mint definition, including raw-unit decimals and display metadata. */
 export interface ZodiacToken {
   readonly sign: ZodiacSign;
   readonly name: string;
@@ -123,15 +142,19 @@ export interface ZodiacToken {
   readonly imageUri?: string;
 }
 
+/** Read-only sign-to-token lookup used by balance readers. */
 export type ZodiacTokenRegistry = ReadonlyMap<ZodiacSign, ZodiacToken>;
 
+/** Validity and human-readable diagnostics for a token registry. */
 export interface ZodiacRegistryValidationResult {
   readonly valid: boolean;
   readonly errors: readonly string[];
 }
 
+/** Injected parsed-account connection or absolute Solana JSON-RPC URL. */
 export type ConnectionOrRpcUrl = string | SolanaBalanceConnection;
 
+/** RPC base units as an unsigned decimal string and their scale. Display fields are optional. */
 export interface ParsedTokenAccountAmount {
   readonly amount: string;
   readonly decimals: number;
@@ -139,6 +162,7 @@ export interface ParsedTokenAccountAmount {
   readonly uiAmountString?: string;
 }
 
+/** Parsed token-account rows returned by Solana owner and mint scans. */
 export interface ParsedTokenAccountResponse {
   readonly value: readonly {
     readonly account: {
@@ -154,13 +178,24 @@ export interface ParsedTokenAccountResponse {
   }[];
 }
 
+/** Selects parsed SPL accounts by mint or by token program. */
+export type TokenAccountFilter = { readonly mint: unknown } | { readonly programId: unknown };
+
+/** Minimal injected transport for parsed wallet scans and per-mint reads. */
 export interface SolanaBalanceConnection {
+  /** Optional transport hook for cancellation. Legacy connections keep their two-argument call. */
+  readonly getParsedTokenAccountsByOwnerWithSignal?: (
+    ownerAddress: unknown,
+    filter: TokenAccountFilter,
+    signal: AbortSignal
+  ) => Promise<ParsedTokenAccountResponse>;
   readonly getParsedTokenAccountsByOwner: (
     ownerAddress: unknown,
-    filter: { readonly mint: unknown } | { readonly programId: unknown }
+    filter: TokenAccountFilter
   ) => Promise<ParsedTokenAccountResponse>;
 }
 
+/** Reader-level token balance with exact raw units and optional approximate UI amount. */
 export interface TokenBalance {
   readonly ownerAddress: string;
   readonly mintAddress: string;
@@ -169,13 +204,16 @@ export interface TokenBalance {
   readonly uiAmount: number | null;
 }
 
+/** Positive balance, confirmed zero, or an unavailable read. */
 export type ZodiacBalanceReadStatus = "ok" | "zero" | "unavailable";
 
+/** Distinguishes a failed Solana RPC call from an invalid parsed response. */
 export interface ZodiacBalanceError {
   readonly code: "rpc-error" | "invalid-rpc-response";
   readonly message: string;
 }
 
+/** Per-sign native balance and provenance. Inspect status before interpreting its amount. */
 export interface ZodiacBalance {
   readonly sign: ZodiacSign;
   readonly token: ZodiacToken;
@@ -193,6 +231,7 @@ export interface ZodiacBalance {
   readonly error?: ZodiacBalanceError;
 }
 
+/** Associates a native token and its balance with a positive-ownership flag. */
 export interface ZodiacsHolding {
   readonly sign: ZodiacSign;
   readonly token: ZodiacToken;
@@ -200,8 +239,10 @@ export interface ZodiacsHolding {
   readonly held: boolean;
 }
 
+/** Indicates whether all, some or none of the requested signs could be checked. */
 export type ZodiacsOwnershipStatus = "available" | "partial" | "unavailable";
 
+/** Wallet-level Solana snapshot separating held, confirmed-zero and unavailable signs. */
 export interface ZodiacsOwnership {
   readonly owner?: string;
   readonly walletAddress: string;
@@ -220,16 +261,20 @@ export interface ZodiacsOwnership {
   readonly warnings?: readonly ZodiacSerializableError[];
 }
 
+/** Injected balance lookup. Resolve null for no balance and reject for read failure. */
 export interface ReadonlyZodiacBalanceReader {
   readonly getTokenBalance: (
     ownerAddress: string,
     mintAddress: string,
-    token: ZodiacToken
+    token: ZodiacToken,
+    options?: ReadOptions
   ) => Promise<TokenBalance | null>;
 }
 
+/** Reader-level outcome. A not-found result means the reader returned null. */
 export type ZodiacBalanceStatus = "available" | "missing-mint" | "not-found" | "unavailable";
 
+/** Token, optional balance and diagnostic reason returned by an injected read. */
 export interface ZodiacBalanceResult {
   readonly sign: ZodiacSign;
   readonly token: ZodiacToken;
@@ -238,24 +283,28 @@ export interface ZodiacBalanceResult {
   readonly reason?: string;
 }
 
-export interface ReadZodiacBalanceOptions {
+/** Owner, sign, injected reader and optional registry for one balance request. */
+export interface ReadZodiacBalanceOptions extends ReadOptions {
   readonly ownerAddress: string;
   readonly sign: ZodiacSign;
   readonly reader: ReadonlyZodiacBalanceReader;
   readonly registry?: ZodiacTokenRegistry;
 }
 
-export interface ReadZodiacsBalancesOptions {
+/** Owner, injected reader and optional registry for all twelve balance requests. */
+export interface ReadZodiacsBalancesOptions extends ReadOptions {
   readonly ownerAddress: string;
   readonly reader: ReadonlyZodiacBalanceReader;
   readonly registry?: ZodiacTokenRegistry;
 }
 
+/** Plain code and message suitable for serializing an SDK read diagnostic. */
 export interface ZodiacSerializableError {
   readonly code: string;
   readonly message: string;
 }
 
+/** One bridged token's exact ERC-20 base units, formatted balance and read status. */
 export interface BaseZodiacBalance {
   readonly sign: ZodiacSign;
   readonly ownerAddress: string;
@@ -271,6 +320,7 @@ export interface BaseZodiacBalance {
   readonly warning?: ZodiacSerializableError;
 }
 
+/** Associates a bridged balance with its threshold-based held flag. */
 export interface BaseZodiacsHolding {
   readonly sign: ZodiacSign;
   readonly representation: ZodiacRepresentation;
@@ -278,6 +328,7 @@ export interface BaseZodiacsHolding {
   readonly held: boolean;
 }
 
+/** Base ownership snapshot with per-sign outcomes and the block number when available. */
 export interface BaseZodiacsOwnership {
   readonly owner: string;
   readonly ownerAddress: string;
@@ -297,11 +348,13 @@ export interface BaseZodiacsOwnership {
   readonly warnings?: readonly ZodiacSerializableError[];
 }
 
+/** Independently optional native and bridged ownership snapshots. */
 export interface CrossChainZodiacsOwnership {
   readonly solana?: ZodiacsOwnership;
   readonly base?: BaseZodiacsOwnership;
 }
 
+/** Per-sign held flags for each representation and their combined result. */
 export interface UnifiedZodiacShelfItem {
   readonly sign: ZodiacSign;
   readonly held: boolean;
@@ -310,6 +363,7 @@ export interface UnifiedZodiacShelfItem {
   readonly representations: readonly ZodiacRepresentation[];
 }
 
+/** Twelve-sign shelf with each held sign counted once across chains. */
 export interface UnifiedZodiacShelf {
   readonly label: "combined wallet holdings across official representations";
   readonly items: readonly UnifiedZodiacShelfItem[];
@@ -317,8 +371,10 @@ export interface UnifiedZodiacShelf {
   readonly totalHeld: number;
 }
 
+/** Counts indexed by the registry's element and modality names. */
 export type ZodiacComposition = Record<ZodiacElement | ZodiacModality, number>;
 
+/** Fixed UTC season with inclusive ISO calendar dates, including extended years. */
 export interface ZodiacSeason {
   readonly sign: ZodiacSign;
   readonly displayName: string;
@@ -327,22 +383,26 @@ export interface ZodiacSeason {
   readonly isCurrent: boolean;
 }
 
+/** Current UTC season plus elapsed percentage rounded to two decimals. */
 export interface ZodiacSeasonProgress extends ZodiacSeason {
   readonly progress: number;
 }
 
+/** Optional sun, moon and rising sign placements supplied by the caller. */
 export interface ZodiacIdentityAlignmentInput {
   readonly sunSign?: ZodiacSign;
   readonly moonSign?: ZodiacSign;
   readonly risingSign?: ZodiacSign;
 }
 
+/** One supplied chart placement and whether its sign is held. */
 export interface ZodiacIdentityAlignment {
   readonly placement: "sun" | "moon" | "rising";
   readonly sign: ZodiacSign;
   readonly held: boolean;
 }
 
+/** Unique signs, dual holdings and separate representation counts across chains. */
 export interface ZodiacNativeBridgedSummary {
   readonly nativeHeldSigns: readonly ZodiacSign[];
   readonly bridgedHeldSigns: readonly ZodiacSign[];
@@ -361,11 +421,13 @@ export interface ZodiacNativeBridgedSummary {
   readonly heldSigns: readonly ZodiacSign[];
 }
 
+/** Display-ready label and value for one public ownership fact. */
 export interface ZodiacReceiptFact {
   readonly label: string;
   readonly value: string;
 }
 
+/** Display attributes and per-chain held flags for one wheel segment. */
 export interface ZodiacWheelDataItem {
   readonly sign: ZodiacSign;
   readonly displayName: string;
@@ -377,6 +439,7 @@ export interface ZodiacWheelDataItem {
   readonly modality: ZodiacModality;
 }
 
+/** Ordered twelve-segment wheel with percentage coverage and confirmed absence. */
 export interface ZodiacWheelData {
   readonly items: readonly ZodiacWheelDataItem[];
   readonly heldSigns: readonly ZodiacSign[];
@@ -385,6 +448,7 @@ export interface ZodiacWheelData {
   readonly totalUniqueSigns: number;
 }
 
+/** Current and next UTC seasons with the current sign's held status. */
 export interface ZodiacSeasonalContext {
   readonly currentSeason: ZodiacSeason;
   readonly nextSeason: ZodiacSeason;
@@ -394,6 +458,7 @@ export interface ZodiacSeasonalContext {
   readonly heldSigns: readonly ZodiacSign[];
 }
 
+/** Shared and distinct signs, overlap and combined coverage for two shelves. */
 export interface ZodiacCompatibilityContext {
   readonly firstHeldSigns: readonly ZodiacSign[];
   readonly secondHeldSigns: readonly ZodiacSign[];
@@ -410,6 +475,7 @@ export interface ZodiacCompatibilityContext {
   readonly shareDescription: string;
 }
 
+/** Display title, description, season and ownership facts for a shareable summary. */
 export interface ZodiacShareCardContext {
   readonly title: string;
   readonly description: string;
@@ -420,6 +486,7 @@ export interface ZodiacShareCardContext {
   readonly facts: readonly ZodiacReceiptFact[];
 }
 
+/** Optional public wallet context with presentation copy and season facts. */
 export interface ConsumerSafeWalletContext {
   readonly connectedWalletLabel: string;
   readonly readOnly: true;
@@ -436,6 +503,10 @@ export interface ConsumerSafeWalletContext {
   readonly safetyNote: string;
 }
 
+/**
+ * Local identity summary combining unique holdings, provenance, season and placement
+ * alignments.
+ */
 export interface ZodiacIdentityContext {
   readonly heldSigns: readonly ZodiacSign[];
   readonly confirmedAbsentSigns: readonly ZodiacSign[];
@@ -462,6 +533,7 @@ export interface ZodiacIdentityContext {
   readonly alignments: readonly ZodiacIdentityAlignment[];
 }
 
+/** Identity summary with a caller-facing label and held flags for all twelve signs. */
 export interface IdentityReceiptData extends ZodiacIdentityContext {
   readonly label: string;
   readonly wheelState: readonly {

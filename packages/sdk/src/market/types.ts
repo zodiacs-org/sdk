@@ -1,7 +1,10 @@
+import type { ReadOptions } from "../core/read-options.js";
 import type { ZodiacSign, ZodiacToken } from "../core/index.js";
 
+/** Whether a provider supplied a usable snapshot. */
 export type MarketDataStatus = "ok" | "unavailable";
 
+/** Machine-readable reason and message for an unavailable market snapshot. */
 export interface MarketDataError {
   readonly code:
     | "not-configured"
@@ -12,6 +15,7 @@ export interface MarketDataError {
   readonly message: string;
 }
 
+/** Provider snapshot with USD price, optional metrics and an ISO timestamp when available. */
 export interface MarketSnapshot {
   readonly sign: ZodiacSign;
   readonly token: ZodiacToken;
@@ -28,23 +32,29 @@ export interface MarketSnapshot {
   readonly error?: MarketDataError;
 }
 
-export interface MarketDataReadOptions {
+/** Requested sign, token address and optional controls for a provider read. */
+export interface MarketDataReadOptions extends ReadOptions {
   readonly sign: ZodiacSign;
   readonly token: ZodiacToken;
-  readonly signal?: AbortSignal;
 }
 
+/** Named provider implementing a read-only snapshot request. */
 export interface MarketDataAdapter {
   readonly id: string;
   readonly readMarket: (options: MarketDataReadOptions) => Promise<MarketSnapshot>;
 }
 
+/** Overrides the built-in provider endpoint or fetch implementation. */
 export interface MarketAdapterConfig {
   readonly endpoint?: string;
   readonly fetchImpl?: typeof fetch;
 }
 
+/** Compatibility name for MarketDataStatus. */
 export type ZodiacMarketStatus = MarketDataStatus;
+/** Compatibility name for MarketSnapshot. */
 export type ZodiacMarketData = MarketSnapshot;
+/** Compatibility name for MarketDataReadOptions. */
 export type ZodiacMarketReadOptions = MarketDataReadOptions;
+/** Compatibility name for MarketDataAdapter. */
 export type ZodiacMarketAdapter = MarketDataAdapter;

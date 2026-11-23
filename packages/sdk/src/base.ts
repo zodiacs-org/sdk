@@ -25,3 +25,4 @@ export type {
   ZodiacSign,
   ZodiacsOwnershipStatus
 } from "./core/types.js";
+export type { ReadOptions } from "./core/read-options.js";

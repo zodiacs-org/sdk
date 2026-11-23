@@ -1,3 +1,4 @@
+import { runRead } from "./read-options.js";
 import { DEFAULT_ZODIAC_TOKEN_REGISTRY, getZodiacToken } from "./registry.js";
 import {
   ZODIAC_SIGNS,
@@ -6,9 +7,18 @@ import {
   type ZodiacBalanceResult
 } from "./types.js";
 
+/**
+ * Queries an injected reader for one sign. A null balance yields not-found, reader failures
+ * yield unavailable, and cancellation rejects.
+ */
 export async function readZodiacBalance(
   options: ReadZodiacBalanceOptions
 ): Promise<ZodiacBalanceResult> {
+  return runRead(options, (signal) => readBalance({ ...options, signal }));
+}
+
+async function readBalance(options: ReadZodiacBalanceOptions): Promise<ZodiacBalanceResult> {
+  options.signal?.throwIfAborted();
   const registry = options.registry ?? DEFAULT_ZODIAC_TOKEN_REGISTRY;
   const token = getZodiacToken(options.sign, registry);
 
@@ -16,7 +26,8 @@ export async function readZodiacBalance(
     const balance = await options.reader.getTokenBalance(
       options.ownerAddress,
       token.mintAddress,
-      token
+      token,
+      ...(options.signal ? [{ signal: options.signal }] : [])
     );
 
     return {
@@ -26,6 +37,7 @@ export async function readZodiacBalance(
       status: balance ? "available" : "not-found"
     };
   } catch (error) {
+    options.signal?.throwIfAborted();
     return {
       sign: options.sign,
       token,
@@ -36,22 +48,11 @@ export async function readZodiacBalance(
   }
 }
 
+/** Queries the injected reader for each sign in registry order under one deadline. */
 export async function readZodiacsBalances(
   options: ReadZodiacsBalancesOptions
 ): Promise<readonly ZodiacBalanceResult[]> {
-  return Promise.all(
-    ZODIAC_SIGNS.map((sign) => {
-      const readOptions: ReadZodiacBalanceOptions = {
-        ownerAddress: options.ownerAddress,
-        reader: options.reader,
-        sign
-      };
-
-      if (options.registry) {
-        return readZodiacBalance({ ...readOptions, registry: options.registry });
-      }
-
-      return readZodiacBalance(readOptions);
-    })
+  return runRead(options, (signal) =>
+    Promise.all(ZODIAC_SIGNS.map((sign) => readBalance({ ...options, sign, signal })))
   );
 }
