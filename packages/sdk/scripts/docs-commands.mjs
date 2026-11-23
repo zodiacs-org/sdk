@@ -38,6 +38,7 @@ if (phase === "release") {
     "neutrality:guard",
     "test",
     "build",
+    "bench",
     "exports:smoke",
     "docs:smoke",
     "pack:dry-run",

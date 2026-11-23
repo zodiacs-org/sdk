@@ -29,11 +29,27 @@ corepack pnpm registry:checksum
 corepack pnpm neutrality:guard
 corepack pnpm test
 corepack pnpm build
+corepack pnpm bench
 corepack pnpm exports:smoke
 corepack pnpm docs:smoke
 corepack pnpm pack:dry-run
 corepack pnpm package:contents
 ```
+
+## Offline benchmark
+
+After building the SDK, run `corepack pnpm bench`. A fresh Node process measures startup through the first identity context from the built package. It records JS heap usage at that point. It then computes 12 fixed charts with the pinned engine development dependency and resolves 1,200 SDK contexts against the same cross-chain ownership fixture. Chart and context timings are reported separately. CI checks the number of held Sun placements, startup under 3 seconds and 64 MiB of JS heap, and less than 8 MiB of retained heap growth across the context loop, measured after garbage collection. The benchmark and wallet integration fixtures run without RPC endpoints or credentials.
+
+## Vercel preview settings
+
+| Project            | Dashboard action                                                                                                                                                              |
+| ------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `sdk-zodia-launch` | Under Settings > Build and Deployment, set Root Directory to `apps/zodia`, Framework Preset to `Next.js`, and use the preset defaults for Build Command and Output Directory. |
+| `sdk-zodia`        | Once the budget owner is ready to resume service, open Settings > General > Pause Project and select **Resume Project**.                                                      |
+
+On PRs #28, #29 and #30, the launch project used the repository root and the Other preset. The root build creates the SDK and two Next.js examples. Vercel then looked for a static `public` output and reported `STATIC_BUILD_NO_OUT_DIR`. The Zodia Next.js workspace has its own build, public assets and cron configuration in `apps/zodia/vercel.json`.
+
+The `sdk-zodia` project already used `apps/zodia` and the Next.js preset. Vercel marked all three previews `BLOCKED` before the first build event. Its project activity records a Spend Management pause on 2026-09-20, and the production endpoint returned HTTP 503 with `DEPLOYMENT_PAUSED`. Resuming the project restores production service as well. [Vercel project settings](https://vercel.com/docs/projects/managing-projects#resuming-a-project)
 
 ## npm Publishing Checklist
 

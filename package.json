@@ -4,6 +4,7 @@
   "type": "module",
   "packageManager": "pnpm@9.15.0",
   "scripts": {
+    "bench": "node --expose-gc packages/sdk/scripts/benchmark.mjs",
     "build": "corepack pnpm --filter @zodiacs/sdk build && corepack pnpm --filter zodiacs-base-app-example build && corepack pnpm --filter zodiacs-sdk-nextjs-example build",
     "exports:smoke": "corepack pnpm --filter @zodiacs/sdk exports:smoke",
     "format": "prettier --write \"**/*.{ts,tsx,js,jsx,mjs,json,md,yml,yaml}\"",
