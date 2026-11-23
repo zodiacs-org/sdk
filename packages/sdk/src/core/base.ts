@@ -82,8 +82,8 @@ export async function getBaseZodiacBalance(
   sign: ZodiacSign,
   options: BaseZodiacsReadOptions = {}
 ): Promise<BaseZodiacBalance> {
-  return runRead(options, (signal) =>
-    readBalance(publicClient, ownerAddress, sign, { ...options, signal })
+  return runRead(options, (controls) =>
+    readBalance(publicClient, ownerAddress, sign, { ...options, ...controls })
   );
 }
 
@@ -141,8 +141,8 @@ export async function getBaseZodiacBalances(
   ownerAddress: string,
   options: BaseZodiacsReadOptions = {}
 ): Promise<readonly BaseZodiacBalance[]> {
-  return runRead(options, (signal) =>
-    readBalances(publicClient, ownerAddress, { ...options, signal })
+  return runRead(options, (controls) =>
+    readBalances(publicClient, ownerAddress, { ...options, ...controls })
   );
 }
 
@@ -177,8 +177,8 @@ export async function getBaseZodiacsOwnership(
   ownerAddress: string,
   options: BaseZodiacsReadOptions = {}
 ): Promise<BaseZodiacsOwnership> {
-  return runRead(options, (signal) =>
-    readOwnership(publicClient, ownerAddress, { ...options, signal })
+  return runRead(options, (controls) =>
+    readOwnership(publicClient, ownerAddress, { ...options, ...controls })
   );
 }
 

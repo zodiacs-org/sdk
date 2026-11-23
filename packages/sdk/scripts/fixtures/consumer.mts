@@ -26,9 +26,11 @@ createPlaceholderMarketAdapter();
 ProfileSummaryCard({ context });
 
 const publicClient = createPublicClient({ chain: base, transport: http() });
-const options = { blockTag: "safe" } satisfies BaseZodiacsReadOptions;
+const options = { blockTag: "safe", timeoutMs: 2500 } satisfies BaseZodiacsReadOptions;
 const owner = "0x1111111111111111111111111111111111111111";
 getBaseZodiacsOwnership(publicClient, owner, options) satisfies Promise<BaseZodiacsOwnership>;
 useBaseZodiacsOwnership(publicClient, owner, options);
 // @ts-expect-error Optional fields must be omitted when the value is unknown.
 getBaseZodiacsOwnership(publicClient, owner, { blockTag: undefined });
+// @ts-expect-error With exactOptionalPropertyTypes, omit an unknown signal.
+getBaseZodiacsOwnership(publicClient, owner, { signal: undefined });

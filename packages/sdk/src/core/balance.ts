@@ -14,7 +14,7 @@ import {
 export async function readZodiacBalance(
   options: ReadZodiacBalanceOptions
 ): Promise<ZodiacBalanceResult> {
-  return runRead(options, (signal) => readBalance({ ...options, signal }));
+  return runRead(options, (controls) => readBalance({ ...options, ...controls }));
 }
 
 async function readBalance(options: ReadZodiacBalanceOptions): Promise<ZodiacBalanceResult> {
@@ -52,7 +52,7 @@ async function readBalance(options: ReadZodiacBalanceOptions): Promise<ZodiacBal
 export async function readZodiacsBalances(
   options: ReadZodiacsBalancesOptions
 ): Promise<readonly ZodiacBalanceResult[]> {
-  return runRead(options, (signal) =>
-    Promise.all(ZODIAC_SIGNS.map((sign) => readBalance({ ...options, sign, signal })))
+  return runRead(options, (controls) =>
+    Promise.all(ZODIAC_SIGNS.map((sign) => readBalance({ ...options, sign, ...controls })))
   );
 }

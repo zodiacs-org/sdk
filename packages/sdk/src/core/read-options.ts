@@ -1,7 +1,7 @@
 /** Optional cancellation and deadline for one complete read, including any fallback. */
 export interface ReadOptions {
   /** Cancels the read with the caller's abort reason. */
-  readonly signal?: AbortSignal | undefined;
+  readonly signal?: AbortSignal;
   /** Whole milliseconds from 0 to 2147483647. Zero expires before dispatch. */
   readonly timeoutMs?: number;
 }
@@ -36,7 +36,7 @@ function subscribe(signal: AbortSignal, callback: () => void): () => void {
 /** Race even a non-cooperative transport and release the timer and listeners on every exit. */
 export async function runRead<T>(
   { signal, timeoutMs }: ReadOptions,
-  read: (signal?: AbortSignal) => Promise<T>
+  read: (controls: Pick<ReadOptions, "signal">) => Promise<T>
 ): Promise<T> {
   signal?.throwIfAborted();
   if (
@@ -45,7 +45,7 @@ export async function runRead<T>(
   ) {
     throw new RangeError("timeoutMs must be an integer between 0 and 2147483647.");
   }
-  if (timeoutMs === undefined && !signal) return read();
+  if (timeoutMs === undefined && !signal) return read({});
 
   const timeoutReason = () => new DOMException("Read timed out.", "TimeoutError");
   if (timeoutMs === 0) throw timeoutReason();
@@ -61,7 +61,7 @@ export async function runRead<T>(
     return await new Promise<T>((resolve, reject) => {
       // A client can abort synchronously during dispatch.
       unsubscribe = subscribe(active, () => reject(active.reason));
-      read(active).then(resolve, reject);
+      read({ signal: active }).then(resolve, reject);
     });
   } catch (error) {
     // Stop sibling RPCs still using this deadline when a composite read fails early.

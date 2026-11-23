@@ -12,9 +12,7 @@ export async function readMarketSafely(
 ): Promise<ZodiacMarketData> {
   try {
     const { timeoutMs: _timeout, ...input } = options;
-    return await runRead(options, (signal) =>
-      adapter.readMarket(signal ? { ...input, signal } : input)
-    );
+    return await runRead(options, (controls) => adapter.readMarket({ ...input, ...controls }));
   } catch (error) {
     return unavailableMarketData(options, adapter.id, {
       code: "adapter-error",

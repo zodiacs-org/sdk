@@ -98,7 +98,7 @@ export function createReadonlySolanaBalanceReader(
 
   return {
     getTokenBalance: (ownerAddress, mintAddress, token, options = {}) =>
-      runRead(options, async (signal): Promise<TokenBalance | null> => {
+      runRead(options, async ({ signal }): Promise<TokenBalance | null> => {
         const walletPublicKey = createPublicKey(ownerAddress, "wallet address");
         const mintPublicKey = createPublicKey(mintAddress, `${token.sign} mint address`);
         const response = await readAccounts(
@@ -139,7 +139,9 @@ export async function getZodiacBalance(
   sign: ZodiacSign,
   options: ReadOptions = {}
 ): Promise<ZodiacBalance> {
-  return runRead(options, (signal) => readBalance(connectionOrRpcUrl, walletAddress, sign, signal));
+  return runRead(options, ({ signal }) =>
+    readBalance(connectionOrRpcUrl, walletAddress, sign, signal)
+  );
 }
 
 async function readBalance(
@@ -205,8 +207,8 @@ export async function getZodiacsOwnership(
   walletAddress: string,
   options: SolanaZodiacsReadOptions = {}
 ): Promise<ZodiacsOwnership> {
-  return runRead(options, (signal) =>
-    readOwnership(connectionOrRpcUrl, walletAddress, { ...options, signal })
+  return runRead(options, (controls) =>
+    readOwnership(connectionOrRpcUrl, walletAddress, { ...options, ...controls })
   );
 }
 
@@ -290,7 +292,7 @@ export async function getSolanaZodiacBalances(
   options: ReadOptions = {}
 ): Promise<readonly ZodiacBalance[]> {
   const connection = createSolanaConnection(connectionOrRpcUrl);
-  return runRead(options, (signal) =>
+  return runRead(options, ({ signal }) =>
     Promise.all(ZODIAC_SIGNS.map((sign) => readBalance(connection, walletAddress, sign, signal)))
   );
 }

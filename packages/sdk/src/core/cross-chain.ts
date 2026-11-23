@@ -39,15 +39,13 @@ export interface ZodiacHoldingsByChain {
 export async function getZodiacHoldingsByChain(
   params: ZodiacHoldingsByChainParams
 ): Promise<ZodiacHoldingsByChain> {
-  return runRead(params, async (signal) => {
+  return runRead(params, async (controls) => {
     const [solana, base] = await Promise.all([
       params.solana
-        ? getSolanaZodiacsOwnership(params.solana.connection, params.solana.ownerAddress, {
-            signal
-          })
+        ? getSolanaZodiacsOwnership(params.solana.connection, params.solana.ownerAddress, controls)
         : Promise.resolve(undefined),
       params.base
-        ? getBaseZodiacsOwnership(params.base.publicClient, params.base.ownerAddress, { signal })
+        ? getBaseZodiacsOwnership(params.base.publicClient, params.base.ownerAddress, controls)
         : Promise.resolve(undefined)
     ]);
 
