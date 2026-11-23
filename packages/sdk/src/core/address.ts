@@ -1,4 +1,4 @@
-import { getAddress, isAddress } from "viem";
+import { checksum, validate } from "ox/Address";
 import type { ZodiacChain } from "./types.js";
 import { InvalidZodiacAddressError } from "./errors.js";
 
@@ -7,17 +7,17 @@ const BASE58_VALUES = new Map([...BASE58_ALPHABET].map((character, index) => [ch
 const SOLANA_PUBLIC_KEY_BYTES = 32;
 
 export function isEvmAddress(address: string): boolean {
-  return isAddress(address);
+  return validate(address);
 }
 
 export function normalizeEvmAddress(address: string): string {
   const trimmed = address.trim();
 
-  if (!isAddress(trimmed)) {
+  if (!validate(trimmed)) {
     throw new InvalidZodiacAddressError(address);
   }
 
-  return getAddress(trimmed);
+  return checksum(trimmed);
 }
 
 export function isSolanaAddressLike(address: string): boolean {

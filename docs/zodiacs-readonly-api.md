@@ -12,7 +12,7 @@ assets, returns valuation data, or returns holdings-value data.
 ## GET /v1/zodiacs/signs
 
 Returns the official registry signs and their canonical Solana-native and
-Base-bridged representations.
+Base-bridged representations. The examples show selected fields and signs.
 
 ```json
 {
@@ -24,8 +24,17 @@ Base-bridged representations.
       "element": "fire",
       "modality": "cardinal",
       "representations": [
-        { "chain": "solana", "kind": "native", "address": "..." },
-        { "chain": "base", "kind": "bridged", "address": "...", "originChain": "solana" }
+        {
+          "chain": "solana",
+          "kind": "native",
+          "address": "GhFiFrExPY3proVF96oth1gESWA5QPQzdtb8cy8b1YZv"
+        },
+        {
+          "chain": "base",
+          "kind": "bridged",
+          "address": "0x3ffB5282F5891Dd8c813E64059EdB0607537eC91",
+          "originChain": "solana"
+        }
       ]
     }
   ]
@@ -128,7 +137,7 @@ Response:
 - Use `getBaseZodiacsOwnership` for Base.
 - Use `getZodiacIdentityContext` or `getConsumerSafeWalletContext` for display
   context.
-- Return provenance labels for Solana-native and Base-bridged representations.
+- Return provenance labels for Solana-native and Base-bridged representations. The examples show selected fields and signs.
 - Do not accept private keys, seed phrases, signatures, or transaction data.
 - Do not sign, approve, submit, exchange, transfer, or custody assets.
 - Do not return valuation, performance, capitalization, or holdings-value data.

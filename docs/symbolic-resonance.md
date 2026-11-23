@@ -19,6 +19,7 @@ better, rarer, more spiritual, or eligible for a feature.
 5. Render bars, hover text, or share cards in the app.
 
 ```ts
+// resonance.ts
 import { getZodiacIdentityContext } from "@zodiacs/sdk/identity";
 import { getZodiacIconAsset } from "@zodiacs/sdk/assets";
 import type { ZodiacIdentityOwnershipInput, ZodiacSign } from "@zodiacs/sdk/core";
@@ -53,7 +54,12 @@ In a Base app, the ownership object can come directly from a public read:
 
 ```ts
 import { getBaseZodiacsOwnership } from "@zodiacs/sdk/base";
+import { createPublicClient, http } from "viem";
+import { base } from "viem/chains";
+import { getResonancePreview } from "./resonance.js";
 
+const publicClient = createPublicClient({ chain: base, transport: http() });
+const publicAddress = "0x1111111111111111111111111111111111111111";
 const ownership = await getBaseZodiacsOwnership(publicClient, publicAddress, {
   onPartialFailure: "warn"
 });

@@ -14,7 +14,11 @@ permissions:
 
 jobs:
   sdk:
-    name: SDK
+    name: SDK (Node ${{ matrix.node }})
+    strategy:
+      fail-fast: false
+      matrix:
+        node: [20, 22]
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -23,41 +27,14 @@ jobs:
       - name: Setup Node
         uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5.0.0
         with:
-          node-version: 20
+          node-version: ${{ matrix.node }}
           package-manager-cache: false
 
       - name: Enable Corepack
         run: corepack enable
 
-      - name: Install
-        run: corepack pnpm install --frozen-lockfile
+      - name: Run the documented release checks
+        run: node packages/sdk/scripts/docs-commands.mjs release
 
-      - name: Lint
-        run: corepack pnpm lint
-
-      - name: Typecheck
-        run: corepack pnpm typecheck
-
-      - name: Format
-        run: corepack pnpm format:check
-
-      - name: Registry checksum
-        run: corepack pnpm registry:checksum
-
-      - name: Neutrality guard
-        run: corepack pnpm neutrality:guard
-
-      - name: Test
-        run: corepack pnpm test
-
-      - name: Build
-        run: corepack pnpm build
-
-      - name: Pack dry run
-        run: corepack pnpm pack:dry-run
-
-      - name: Package contents
-        run: corepack pnpm package:contents
-
-      - name: Export smoke
-        run: corepack pnpm exports:smoke
+      - name: Run the documented workspace examples against the tarball
+        run: node packages/sdk/scripts/docs-commands.mjs examples

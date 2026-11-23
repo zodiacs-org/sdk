@@ -15,7 +15,8 @@
     "registry:checksum": "corepack pnpm --filter @zodiacs/sdk registry:checksum",
     "typecheck": "corepack pnpm --filter @zodiacs/sdk typecheck && corepack pnpm --filter zodiacs-base-app-example typecheck && corepack pnpm --filter zodiacs-sdk-nextjs-example typecheck",
     "test": "vitest run --fileParallelism=false",
-    "clean": "corepack pnpm -r exec rm -rf dist tsconfig.tsbuildinfo"
+    "clean": "corepack pnpm -r exec rm -rf dist tsconfig.tsbuildinfo",
+    "docs:smoke": "node packages/sdk/scripts/docs-smoke.mjs"
   },
   "devDependencies": {
     "@types/react": "^18.3.12",

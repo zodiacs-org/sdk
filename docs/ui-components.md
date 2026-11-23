@@ -5,14 +5,23 @@ transactions.
 
 ```tsx
 import { ProfileSummaryCard, ShareCardPreview, ZodiacWheel } from "@zodiacs/sdk/ui";
-import { getZodiacIdentityContext, getZodiacWheelData } from "@zodiacs/sdk/core";
+import {
+  getZodiacIdentityContext,
+  getZodiacWheelData,
+  type ZodiacIdentityOwnershipInput
+} from "@zodiacs/sdk/core";
 
-const context = getZodiacIdentityContext(ownership);
-const wheel = getZodiacWheelData(ownership);
-
-<ProfileSummaryCard context={context} />
-<ZodiacWheel wheel={wheel} />
-<ShareCardPreview context={context} />
+export function Profile({ ownership }: { ownership: ZodiacIdentityOwnershipInput }) {
+  const context = getZodiacIdentityContext(ownership);
+  const wheel = getZodiacWheelData(ownership);
+  return (
+    <>
+      <ProfileSummaryCard context={context} />
+      <ZodiacWheel wheel={wheel} />
+      <ShareCardPreview context={context} />
+    </>
+  );
+}
 ```
 
 Components label Solana-native and Base-bridged provenance. They intentionally avoid asset acquisition, asset disposal, asset exchange, approval,

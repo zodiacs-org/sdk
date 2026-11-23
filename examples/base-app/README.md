@@ -17,6 +17,7 @@ It demonstrates:
 
 ```sh
 corepack pnpm install
+corepack pnpm --filter @zodiacs/sdk build
 corepack pnpm --filter zodiacs-base-app-example dev
 ```
 
@@ -24,7 +25,7 @@ Copy `.env.example` to `.env.local` if you want to override public RPC endpoints
 
 ## Environment Variables
 
-```txt
+```dotenv
 NEXT_PUBLIC_BASE_RPC_URL=https://mainnet.base.org
 NEXT_PUBLIC_BASE_SEPOLIA_RPC_URL=https://sepolia.base.org
 NEXT_PUBLIC_BASE_APP_NAME="Zodiacs Base Read-Only Example"

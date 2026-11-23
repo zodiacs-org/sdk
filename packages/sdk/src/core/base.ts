@@ -1,4 +1,6 @@
-import { erc20Abi, getAddress, isAddress } from "viem";
+import { erc20Abi } from "abitype/abis";
+import { checksum, validate } from "ox/Address";
+import type { erc20Abi as viemErc20Abi } from "viem";
 import { PartialOwnershipReadError, UnsupportedChainError } from "./errors.js";
 import { formatTokenAmount } from "./format.js";
 import {
@@ -28,7 +30,7 @@ export interface BaseZodiacsReadOptions {
 }
 
 type BaseReadBlock = Pick<BaseZodiacsReadOptions, "blockNumber" | "blockTag">;
-type BaseContract = { readonly address: `0x${string}`; readonly abi: typeof erc20Abi } & (
+type BaseContract = { readonly address: `0x${string}`; readonly abi: typeof viemErc20Abi } & (
   | { readonly functionName: "decimals" }
   | { readonly functionName: "balanceOf"; readonly args: readonly [`0x${string}`] }
 );
@@ -285,7 +287,7 @@ function getBaseOwnershipStatus(balances: readonly BaseZodiacBalance[]): Zodiacs
 }
 
 function normalizeOwnerAddress(ownerAddress: string): `0x${string}` | null {
-  return isAddress(ownerAddress) ? getAddress(ownerAddress) : null;
+  return validate(ownerAddress) ? checksum(ownerAddress) : null;
 }
 
 async function readBaseZodiacBalancesBatched(

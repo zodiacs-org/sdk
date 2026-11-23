@@ -509,7 +509,7 @@ function toUniqueOwnershipLike(ownership: OwnershipLike): OwnershipLike {
 function isCrossChainOwnership(
   ownership: ZodiacIdentityOwnershipInput
 ): ownership is CrossChainZodiacsOwnership {
-  return "solana" in ownership || "base" in ownership;
+  return !("holdings" in ownership);
 }
 
 function getWheelCoverage(totalHeld: number, denominator: number = ZODIAC_SIGNS.length): number {

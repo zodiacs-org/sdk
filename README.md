@@ -34,7 +34,7 @@ packages/sdk/registry/zodiacs.registry.json
 
 - Registry JSON package subpath: `@zodiacs/sdk/registry/zodiacs.registry.json`
 - Registry JSON source: [packages/sdk/registry/zodiacs.registry.json](packages/sdk/registry/zodiacs.registry.json)
-- GitHub repository: [ZodiacsOfficial/sdk](https://github.com/ZodiacsOfficial/sdk)
+- GitHub repository: [zodiacs-org/sdk](https://github.com/zodiacs-org/sdk)
 - Next.js example app: [examples/nextjs](examples/nextjs)
 - Simastry Aura example: [examples/simastry-aura](examples/simastry-aura)
 
@@ -71,6 +71,10 @@ import { ProfileSummaryCard } from "@zodiacs/sdk/ui";
 import { createMockOwnership } from "@zodiacs/sdk/testing";
 import { getZodiacIconAsset } from "@zodiacs/sdk/assets";
 ```
+
+JavaScript entry points use ESM. From CommonJS, use `await import("@zodiacs/sdk")`
+inside an async function. TypeScript consumers can use Node16, NodeNext, or
+Bundler resolution to load declarations through the same export map.
 
 The package ships granular entry points:
 
@@ -134,14 +138,15 @@ import { getZodiacIconAsset } from "@zodiacs/sdk/assets";
 
 const leoIcon = getZodiacIconAsset("leo");
 
-console.log(leoIcon.packagePath);
-// "@zodiacs/sdk/assets/zodiac-icons/circle/leo.png"
+console.log(leoIcon.packagePath); // "@zodiacs/sdk/assets/zodiac-icons/circle/leo.png"
 ```
 
 Bundlers that support image imports can reference the PNG subpaths directly:
 
 ```ts
 import leoIconUrl from "@zodiacs/sdk/assets/zodiac-icons/circle/leo.png";
+
+console.log(leoIconUrl);
 ```
 
 These assets are display references for the official registry. Apps should
@@ -248,7 +253,10 @@ when `maximumFractionDigits` is set unless `roundingMode: "round"` is passed.
 
 ```ts
 import { getCrossChainZodiacsOwnership, getUnifiedZodiacShelf } from "@zodiacs/sdk";
+import { createPublicClient, http } from "viem";
+import { base } from "viem/chains";
 
+const publicClient = createPublicClient({ chain: base, transport: http() });
 const ownershipByChain = await getCrossChainZodiacsOwnership({
   solana: {
     connection: "https://api.mainnet-beta.solana.com",
@@ -285,7 +293,9 @@ import {
   getIdentityReceiptData,
   getZodiacIdentityContext
 } from "@zodiacs/sdk/identity";
+import { createMockOwnership } from "@zodiacs/sdk/testing";
 
+const ownership = createMockOwnership({ heldSigns: ["aries"] });
 const season = getCurrentZodiacSeason(new Date("2026-03-22T00:00:00.000Z"));
 const context = getZodiacIdentityContext(ownership, {
   date: new Date("2026-03-22T00:00:00.000Z"),
