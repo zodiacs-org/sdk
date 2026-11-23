@@ -124,6 +124,11 @@ metadata and public ownership state:
 
 ```ts
 import { getCurrentZodiacSeason, getZodiacIdentityContext } from "@zodiacs/sdk/identity";
+import { createMockOwnership } from "@zodiacs/sdk/testing";
+
+// A fixture, so this runs with no network. In an app, read `ownership` with
+// getSolanaZodiacsOwnership or getBaseZodiacsOwnership.
+const ownership = createMockOwnership({ heldSigns: ["aries"] });
 
 const season = getCurrentZodiacSeason();
 const context = getZodiacIdentityContext(ownership, {
