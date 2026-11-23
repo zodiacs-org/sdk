@@ -16,37 +16,34 @@ export async function getZodiacMarket(
   sign: ZodiacSign,
   options: ReadOptions & { readonly chain?: ZodiacChain } = {}
 ): Promise<ZodiacMarketData> {
-  const representation =
-    options.chain === "base"
-      ? getBaseZodiacRepresentation(sign)
-      : getSolanaZodiacRepresentation(sign);
-
-  return getZodiacMarketByRepresentation(adapter, representation, options);
+  return options.chain === "base"
+    ? getBaseZodiacMarket(adapter, sign, options)
+    : getSolanaZodiacMarket(adapter, sign, options);
 }
 
 /** Reads a provider snapshot for the sign's official native mint. */
-export function getSolanaZodiacMarket(
+export async function getSolanaZodiacMarket(
   adapter: ZodiacMarketAdapter,
   sign: ZodiacSign,
   options: ReadOptions = {}
 ): Promise<ZodiacMarketData> {
-  return getZodiacMarket(adapter, sign, { ...options, chain: "solana" });
+  return getZodiacMarketByRepresentation(adapter, getSolanaZodiacRepresentation(sign), options);
 }
 
 /** Reads a provider snapshot for the sign's official bridged address. */
-export function getBaseZodiacMarket(
+export async function getBaseZodiacMarket(
   adapter: ZodiacMarketAdapter,
   sign: ZodiacSign,
   options: ReadOptions = {}
 ): Promise<ZodiacMarketData> {
-  return getZodiacMarket(adapter, sign, { ...options, chain: "base" });
+  return getZodiacMarketByRepresentation(adapter, getBaseZodiacRepresentation(sign), options);
 }
 
 /** Passes the given representation's address to the adapter as the token lookup key. */
 export function getZodiacMarketByRepresentation(
   adapter: ZodiacMarketAdapter,
   representation: ZodiacRepresentation,
-  options: ReadOptions = {}
+  { signal, timeoutMs }: ReadOptions = {}
 ): Promise<ZodiacMarketData> {
   const token = {
     ...getZodiacToken(representation.sign),
@@ -56,6 +53,7 @@ export function getZodiacMarketByRepresentation(
   return readMarketSafely(adapter, {
     sign: representation.sign,
     token,
-    ...options
+    ...(signal && { signal }),
+    ...(timeoutMs !== undefined && { timeoutMs })
   });
 }
