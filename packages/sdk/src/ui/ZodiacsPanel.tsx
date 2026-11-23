@@ -2,6 +2,7 @@ import type { CSSProperties } from "react";
 import { ZODIAC_SIGNS, type ZodiacSign } from "../core/index.js";
 import { ZodiacAssetCard } from "./ZodiacAssetCard.js";
 
+/** Selects which signs and optional public owner to display in the panel. */
 export interface ZodiacsPanelProps {
   readonly ownerAddress?: string | null;
   readonly signs?: readonly ZodiacSign[];
@@ -10,6 +11,7 @@ export interface ZodiacsPanelProps {
   readonly style?: CSSProperties;
 }
 
+/** Renders asset cards in the supplied order, defaulting to all twelve signs. */
 export function ZodiacsPanel({
   ownerAddress,
   signs = ZODIAC_SIGNS,

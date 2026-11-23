@@ -1,5 +1,6 @@
 import type { MarketDataError, ZodiacMarketData, ZodiacMarketReadOptions } from "./types.js";
 
+/** Builds an unavailable snapshot with null metrics and the supplied provider diagnostic. */
 export function unavailableMarketData(
   options: ZodiacMarketReadOptions,
   source: string,

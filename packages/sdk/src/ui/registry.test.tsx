@@ -8,9 +8,18 @@ import {
   ZodiacTokenCard,
   ZodiacAddressVerifier
 } from "./index.js";
-import { getCompatibilityContext, getZodiacIdentityContext } from "../core/index.js";
+import {
+  getBaseZodiacRepresentation,
+  getCompatibilityContext,
+  getZodiacIdentityContext
+} from "../core/index.js";
 
 describe("registry UI components", () => {
+  it("checks a supplied representation before rendering its official badge", () => {
+    const representation = { ...getBaseZodiacRepresentation("aries"), sign: "taurus" } as const;
+    expect(OfficialZodiacBadge({ representation }).props.children).toContain("Not found");
+  });
+
   it("renders native and bridged labels", () => {
     expect(
       OfficialZodiacBadge({ address: "GhFiFrExPY3proVF96oth1gESWA5QPQzdtb8cy8b1YZv" }).props

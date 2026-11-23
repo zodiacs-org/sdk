@@ -23,6 +23,12 @@ function getPngDimensions(buffer: Buffer): { readonly width: number; readonly he
 }
 
 describe("official zodiac icon assets", () => {
+  it("rejects an unknown sign consistently for metadata and paths", () => {
+    for (const get of [getZodiacIconAsset, getZodiacIconAssetPath]) {
+      expect(() => get("unknown" as never)).toThrow("Invalid zodiac sign");
+    }
+  });
+
   it("publishes one normalized circle PNG per zodiac sign", () => {
     const assets = getAllZodiacIconAssets();
 

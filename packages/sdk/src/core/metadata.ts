@@ -1,5 +1,6 @@
 import type { ZodiacMetadata, ZodiacSign } from "./types.js";
 
+/** Bundled display metadata and fixed calendar ranges for all twelve signs. */
 export const ZODIAC_METADATA = [
   {
     sign: "aries",
@@ -115,10 +116,12 @@ const metadataBySign = new Map<ZodiacSign, ZodiacMetadata>(
   ZODIAC_METADATA.map((metadata) => [metadata.sign, metadata])
 );
 
+/** Lists bundled sign metadata in zodiac order. */
 export function listZodiacMetadata(): readonly ZodiacMetadata[] {
   return ZODIAC_METADATA;
 }
 
+/** Returns display metadata for one sign. An unknown sign throws. */
 export function getZodiacMetadata(sign: ZodiacSign): ZodiacMetadata {
   const metadata = metadataBySign.get(sign);
 

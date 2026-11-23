@@ -7,6 +7,7 @@ import {
   type ZodiacTokenRegistry
 } from "../core/index.js";
 
+/** Registry and optional balance reader available to hooks below the provider. */
 export interface ZodiacsContextValue {
   readonly registry: ZodiacTokenRegistry;
   readonly balanceReader: ReadonlyZodiacBalanceReader | null;
@@ -14,6 +15,10 @@ export interface ZodiacsContextValue {
   readonly marketAdapter?: unknown;
 }
 
+/**
+ * Configures a registry and reader. An explicit balanceReader takes precedence over rpcUrl,
+ * including null.
+ */
 export interface ZodiacsProviderProps {
   readonly children: ReactNode;
   readonly registry?: ZodiacTokenRegistry;
@@ -28,6 +33,7 @@ const ZodiacsContext = createContext<ZodiacsContextValue>({
   balanceReader: null
 });
 
+/** Supplies the registry and optional read-only Solana balance reader to child components. */
 export function ZodiacsProvider({
   children,
   registry = DEFAULT_ZODIAC_TOKEN_REGISTRY,
@@ -52,6 +58,7 @@ export function ZodiacsProvider({
   return <ZodiacsContext.Provider value={value}>{children}</ZodiacsContext.Provider>;
 }
 
+/** Returns the nearest provider value or the default registry with a null reader. */
 export function useZodiacs(): ZodiacsContextValue {
   return useContext(ZodiacsContext);
 }

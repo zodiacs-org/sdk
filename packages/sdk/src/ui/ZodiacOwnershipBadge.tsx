@@ -1,12 +1,14 @@
 import type { CSSProperties } from "react";
 import type { ZodiacBalanceResult } from "../core/index.js";
 
+/** Optional reader result and style overrides for the balance status badge. */
 export interface ZodiacOwnershipBadgeProps {
   readonly balance?: ZodiacBalanceResult | null;
   readonly className?: string;
   readonly style?: CSSProperties;
 }
 
+/** Displays pending, held, not held or unavailable from a reader result. */
 export function ZodiacOwnershipBadge({ balance, className, style }: ZodiacOwnershipBadgeProps) {
   const copy = getOwnershipCopy(balance);
 

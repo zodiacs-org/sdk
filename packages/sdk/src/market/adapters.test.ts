@@ -1,10 +1,12 @@
 import { describe, expect, it, vi } from "vitest";
-import type { ZodiacToken } from "../core/index.js";
+import { getBaseZodiacRepresentation, type ZodiacToken } from "../core/index.js";
 import {
   createDexScreenerMarketAdapter,
   createJupiterMarketAdapter,
   createPlaceholderMarketAdapter,
-  readMarketSafely
+  getBaseZodiacMarket,
+  readMarketSafely,
+  type MarketDataReadOptions
 } from "./index.js";
 
 const token = {
@@ -53,6 +55,25 @@ function mockResponse({
 }
 
 describe("market adapters", () => {
+  it("uses the requested Base contract when given options from a Solana market read", async () => {
+    const signal = new AbortController().signal;
+    const solanaOptions: MarketDataReadOptions = { ...options, signal };
+    const endpoint = "https://market.example/tokens";
+    const fetchImpl = vi.fn(async () => Response.json({ pairs: [{ priceUsd: "1" }] }));
+    const adapter = createDexScreenerMarketAdapter({ endpoint, fetchImpl });
+    const baseAddress = getBaseZodiacRepresentation("taurus").address;
+
+    const snapshot = await getBaseZodiacMarket(adapter, "taurus", solanaOptions);
+
+    expect(fetchImpl).toHaveBeenCalledOnce();
+    expect(fetchImpl).toHaveBeenCalledWith(`${endpoint}/${baseAddress}`, { signal });
+    expect(snapshot).toMatchObject({
+      status: "ok",
+      sign: "taurus",
+      token: { sign: "taurus", mintAddress: baseAddress }
+    });
+  });
+
   it("returns unavailable placeholder data safely", async () => {
     const adapter = createPlaceholderMarketAdapter();
 
@@ -149,6 +170,13 @@ describe("market adapters", () => {
           }
         });
       });
+    }
+  });
+
+  it("classifies malformed provider containers as invalid responses", async () => {
+    for (const adapter of [createJupiterMarketAdapter, createDexScreenerMarketAdapter]) {
+      const provider = adapter({ fetchImpl: async () => Response.json([]) });
+      expect((await provider.readMarket(options)).error?.code).toBe("invalid-response");
     }
   });
 

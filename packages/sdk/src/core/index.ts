@@ -224,3 +224,4 @@ export type {
 } from "./identity.js";
 export type { ZodiacAddressLookupOptions } from "./verification.js";
 export type { ZodiacHoldingsByChain, ZodiacHoldingsByChainParams } from "./cross-chain.js";
+export type { ReadOptions } from "./read-options.js";

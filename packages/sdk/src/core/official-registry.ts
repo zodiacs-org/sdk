@@ -8,9 +8,12 @@ import type {
   ZodiacsRegistry
 } from "./types.js";
 
+/** Version of the bundled registry data, independent of the npm package version. */
 export const ZODIACS_REGISTRY_VERSION = "0.2.0";
+/** Numeric identifier of Base mainnet. */
 export const BASE_CHAIN_ID = 8453;
 
+/** Official bridged ERC-20 addresses on Base mainnet keyed by zodiac sign. */
 export const BASE_BRIDGED_ZODIAC_ADDRESSES = {
   aries: "0x3ffB5282F5891Dd8c813E64059EdB0607537eC91",
   taurus: "0xd5356c6E529569c6912978433DAfb7ca72B5f09C",
@@ -92,6 +95,7 @@ function createAsset(token: (typeof DEFAULT_ZODIAC_TOKENS)[number]): ZodiacAsset
   };
 }
 
+/** Bundled registry of signs, supported chains and official token representations. */
 export const ZODIACS_REGISTRY = {
   name: "Zodiacs Official Registry",
   source: "https://zodiacs.org",
@@ -114,20 +118,25 @@ export const ZODIACS_REGISTRY = {
   assets: DEFAULT_ZODIAC_TOKENS.map(createAsset)
 } as const satisfies ZodiacsRegistry;
 
+/** Returns the bundled registry synchronously without a network lookup. */
 export function getZodiacsRegistry(): ZodiacsRegistry {
   return ZODIACS_REGISTRY;
 }
 
+/** Alias of getZodiacsRegistry for the bundled official registry. */
 export const getCanonicalZodiacsRegistry = getZodiacsRegistry;
 
+/** Returns the version embedded in the official registry. */
 export function getRegistryVersion(): string {
   return ZODIACS_REGISTRY.version;
 }
 
+/** Returns the twelve official assets in zodiac order. */
 export function getAllZodiacAssets(): readonly ZodiacAsset[] {
   return ZODIACS_REGISTRY.assets;
 }
 
+/** Returns the official asset for a sign. An unknown sign throws. */
 export function getZodiacAsset(sign: ZodiacSign): ZodiacAsset {
   const asset = ZODIACS_REGISTRY.assets.find((item) => item.sign === sign);
 
@@ -138,10 +147,12 @@ export function getZodiacAsset(sign: ZodiacSign): ZodiacAsset {
   return asset;
 }
 
+/** Lists the official native and bridged entries for one sign. */
 export function getZodiacRepresentations(sign: ZodiacSign): readonly ZodiacRepresentation[] {
   return getZodiacAsset(sign).representations;
 }
 
+/** Selects the entry for a sign and chain, or null if no chain entry exists. */
 export function getZodiacRepresentation(
   sign: ZodiacSign,
   chain: ZodiacChain
@@ -151,12 +162,15 @@ export function getZodiacRepresentation(
   );
 }
 
+/** Returns the canonical Solana origin for a sign. */
 export function getNativeZodiacRepresentation(sign: ZodiacSign): ZodiacRepresentation {
   return getZodiacAsset(sign).native;
 }
 
+/** Alias of getNativeZodiacRepresentation for the canonical Solana origin. */
 export const getSolanaZodiacRepresentation = getNativeZodiacRepresentation;
 
+/** Returns the official Base ERC-20 entry for a sign. A missing entry throws. */
 export function getBaseZodiacRepresentation(sign: ZodiacSign): ZodiacRepresentation {
   const representation = getZodiacRepresentation(sign, "base");
 
@@ -167,18 +181,21 @@ export function getBaseZodiacRepresentation(sign: ZodiacSign): ZodiacRepresentat
   return representation;
 }
 
+/** Lists official chain entries for one sign or, by default, for all twelve. */
 export function getAllOfficialRepresentations(sign?: ZodiacSign): readonly ZodiacRepresentation[] {
   return sign
     ? getZodiacRepresentations(sign)
     : ZODIACS_REGISTRY.assets.flatMap((asset) => asset.representations);
 }
 
+/** Lists the official Base ERC-20 representations in zodiac order. */
 export function getAllBaseBridgedZodiacs(): readonly ZodiacRepresentation[] {
   return getAllOfficialRepresentations().filter(
     (representation) => representation.chain === "base"
   );
 }
 
+/** Lists the official native SPL representations in zodiac order. */
 export function getAllSolanaNativeZodiacs(): readonly ZodiacRepresentation[] {
   return getAllOfficialRepresentations().filter(
     (representation) => representation.chain === "solana"

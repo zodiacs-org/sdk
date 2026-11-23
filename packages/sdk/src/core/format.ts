@@ -1,12 +1,20 @@
 import type { TokenBalance, ZodiacToken } from "./types.js";
 
+/**
+ * Fraction digit limits for display. Exact raw formatting truncates by default and uses a
+ * decimal point.
+ */
 export interface FormatTokenAmountOptions {
+  /** Maximum displayed digits after the decimal point. Defaults to the token scale in exact mode. */
   readonly maximumFractionDigits?: number;
+  /** Pad to this many fractional digits. Defaults to zero. */
   readonly minimumFractionDigits?: number;
+  /** Locale for the approximate UI-number path of formatZodiacBalance. */
   readonly locale?: string;
   readonly roundingMode?: "round" | "truncate";
 }
 
+/** Formats a number with locale-specific compact notation and up to two fractional digits. */
 export function formatCompactNumber(value: number, locale = "en-US"): string {
   return new Intl.NumberFormat(locale, {
     maximumFractionDigits: 2,
@@ -14,6 +22,10 @@ export function formatCompactNumber(value: number, locale = "en-US"): string {
   }).format(value);
 }
 
+/**
+ * Formats a finite currency amount with Intl. Missing or non-finite values display as
+ * "Unavailable".
+ */
 export function formatCurrency(
   value: number | null | undefined,
   currency = "USD",
@@ -30,6 +42,10 @@ export function formatCurrency(
   }).format(value);
 }
 
+/**
+ * Formats percentage points with a sign and up to two decimal places. Missing or non-finite
+ * values display as "Unavailable".
+ */
 export function formatPercentChange(value: number | null | undefined, locale = "en-US"): string {
   if (value === null || value === undefined || !Number.isFinite(value)) {
     return "Unavailable";
@@ -42,6 +58,10 @@ export function formatPercentChange(value: number | null | undefined, locale = "
   }).format(value / 100);
 }
 
+/**
+ * Formats unsigned base units exactly at a scale of 0 to 18. Accepts digit strings, bigint
+ * or safe integer numbers. Invalid inputs throw. Rounding is half-up when requested.
+ */
 export function formatTokenAmount(
   amountRaw: string | number | bigint,
   decimals: number,
@@ -66,6 +86,10 @@ export function formatTokenAmount(
   return displayFractional ? `${whole}.${displayFractional}` : whole;
 }
 
+/**
+ * Appends the ticker to a display balance. Null displays as zero. Setting maximumFractionDigits or
+ * roundingMode selects raw-unit formatting.
+ */
 export function formatZodiacBalance(
   balance: TokenBalance | null,
   token: ZodiacToken,
@@ -89,6 +113,10 @@ export function formatZodiacBalance(
   return `${amount} ${token.ticker}`;
 }
 
+/**
+ * Converts unsigned base units to an approximate JS number. Use formatTokenAmount to retain
+ * exact digits.
+ */
 export function rawAmountToNumber(amountRaw: string | number | bigint, decimals: number): number {
   const raw = normalizeRawAmountString(amountRaw);
   assertDecimals(decimals);
@@ -101,6 +129,13 @@ function normalizeRawAmountString(amountRaw: string | number | bigint): string {
     throw new RangeError(
       "Numeric token amounts must be safe integers. Use a string or bigint for larger amounts."
     );
+  }
+  if (
+    typeof amountRaw !== "string" &&
+    typeof amountRaw !== "number" &&
+    typeof amountRaw !== "bigint"
+  ) {
+    throw new TypeError("Token amount must be a string, number or bigint.");
   }
   const raw = String(amountRaw);
 

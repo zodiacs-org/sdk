@@ -1,3 +1,4 @@
+import { runRead, type ReadOptions } from "./read-options.js";
 import { erc20Abi } from "abitype/abis";
 import { checksum, validate } from "ox/Address";
 import type { erc20Abi as viemErc20Abi } from "viem";
@@ -18,18 +19,27 @@ import type {
   ZodiacsOwnershipStatus
 } from "./types.js";
 
+/** Named Base block selection supported by contract reads. */
 export type BaseZodiacsBlockTag = "latest" | "safe" | "finalized" | "pending";
 
-export interface BaseZodiacsReadOptions {
+/**
+ * Controls the Base block, raw holding threshold, failure reporting and cancellation for a
+ * complete read.
+ */
+export interface BaseZodiacsReadOptions extends ReadOptions {
+  /** Set false to return only held entries in the holdings list. */
   readonly includeZeroBalances?: boolean;
+  /** Minimum positive balance in raw ERC-20 units. Defaults to 1n. */
   readonly minBalance?: bigint;
+  /** Pins reads to this height and takes precedence over blockTag. */
   readonly blockNumber?: bigint;
+  /** Defaults to the latest block. */
   readonly blockTag?: BaseZodiacsBlockTag;
-  readonly signal?: AbortSignal;
+  /** Defaults to warn. Ignore omits diagnostics, while throw rejects with PartialOwnershipReadError. */
   readonly onPartialFailure?: "throw" | "warn" | "ignore";
 }
 
-type BaseReadBlock = Pick<BaseZodiacsReadOptions, "blockNumber" | "blockTag">;
+type BaseReadBlock = Pick<BaseZodiacsReadOptions, "blockNumber" | "blockTag" | "signal">;
 type BaseContract = { readonly address: `0x${string}`; readonly abi: typeof viemErc20Abi } & (
   | { readonly functionName: "decimals" }
   | { readonly functionName: "balanceOf"; readonly args: readonly [`0x${string}`] }
@@ -39,10 +49,14 @@ interface BaseBatchRead extends BaseReadBlock {
   readonly allowFailure: true;
 }
 
+/** Read-only client for Base mainnet (8453). Batching and latest block lookup are optional. */
 export interface ZodiacsBasePublicClient {
   readonly readContract: (parameters: BaseContract & BaseReadBlock) => Promise<unknown>;
   readonly readContracts?: (parameters: BaseBatchRead) => Promise<readonly ReadContractsResult[]>;
-  readonly getBlockNumber?: () => Promise<bigint>;
+  readonly getBlockNumber?: (options?: {
+    readonly cacheTime?: number;
+    readonly signal?: AbortSignal;
+  }) => Promise<bigint>;
   readonly chain?: { readonly id?: number } | undefined;
 }
 
@@ -58,13 +72,28 @@ interface CachedDecimals {
 const UINT256_LIMIT = 1n << 256n;
 const decimalsCache = new WeakMap<object, Map<string, CachedDecimals>>();
 
+/**
+ * Reads one ERC-20 balance and its decimals. An invalid owner or RPC failure yields an
+ * unavailable balance. Wrong-chain and cancelled reads reject.
+ */
 export async function getBaseZodiacBalance(
   publicClient: ZodiacsBasePublicClient,
   ownerAddress: string,
   sign: ZodiacSign,
   options: BaseZodiacsReadOptions = {}
 ): Promise<BaseZodiacBalance> {
-  throwIfAborted(options.signal);
+  return runRead(options, (controls) =>
+    readBalance(publicClient, ownerAddress, sign, { ...options, ...controls })
+  );
+}
+
+async function readBalance(
+  publicClient: ZodiacsBasePublicClient,
+  ownerAddress: string,
+  sign: ZodiacSign,
+  options: BaseZodiacsReadOptions
+): Promise<BaseZodiacBalance> {
+  options.signal?.throwIfAborted();
   assertBaseChain(publicClient);
   const representation = getBaseZodiacRepresentation(sign);
   const normalizedOwner = normalizeOwnerAddress(ownerAddress);
@@ -92,10 +121,10 @@ export async function getBaseZodiacBalance(
         ...getBlockReadOptions(options)
       })
     ]);
-    throwIfAborted(options.signal);
+    options.signal?.throwIfAborted();
     return baseBalanceFromResult(representation, normalizedOwner, rawAmount, decimals);
   } catch (error) {
-    throwIfAborted(options.signal);
+    options.signal?.throwIfAborted();
     return unavailableBaseBalance(representation, normalizedOwner, {
       code: "zodiac-read-unavailable",
       message: error instanceof Error ? error.message : "Base ERC-20 balance read failed."
@@ -103,16 +132,30 @@ export async function getBaseZodiacBalance(
   }
 }
 
+/**
+ * Reads all official Base balances in registry order. Uses batch calls when supported and
+ * records failures per sign.
+ */
 export async function getBaseZodiacBalances(
   publicClient: ZodiacsBasePublicClient,
   ownerAddress: string,
   options: BaseZodiacsReadOptions = {}
 ): Promise<readonly BaseZodiacBalance[]> {
+  return runRead(options, (controls) =>
+    readBalances(publicClient, ownerAddress, { ...options, ...controls })
+  );
+}
+
+async function readBalances(
+  publicClient: ZodiacsBasePublicClient,
+  ownerAddress: string,
+  options: BaseZodiacsReadOptions
+): Promise<readonly BaseZodiacBalance[]> {
   assertBaseChain(publicClient);
   if (typeof publicClient.readContracts !== "function") {
     return Promise.all(
       getAllBaseBridgedZodiacs().map((representation) =>
-        getBaseZodiacBalance(publicClient, ownerAddress, representation.sign, options)
+        readBalance(publicClient, ownerAddress, representation.sign, options)
       )
     );
   }
@@ -120,21 +163,40 @@ export async function getBaseZodiacBalances(
   return readBaseZodiacBalancesBatched(publicClient, ownerAddress, options);
 }
 
+/**
+ * Reads Base balances at the selected block and classifies held, zero and unavailable signs.
+ * Cancellation rejects even in ignore mode.
+ * @param publicClient - A read-only Base mainnet client.
+ * @param ownerAddress - EVM address whose bridged balances should be checked.
+ * @param options - Block selection, threshold in raw units, failure policy and deadline.
+ * @throws UnsupportedChainError for an explicitly different chain.
+ * @throws The caller's abort reason or a TimeoutError DOMException when the deadline expires.
+ */
 export async function getBaseZodiacsOwnership(
   publicClient: ZodiacsBasePublicClient,
   ownerAddress: string,
   options: BaseZodiacsReadOptions = {}
 ): Promise<BaseZodiacsOwnership> {
+  return runRead(options, (controls) =>
+    readOwnership(publicClient, ownerAddress, { ...options, ...controls })
+  );
+}
+
+async function readOwnership(
+  publicClient: ZodiacsBasePublicClient,
+  ownerAddress: string,
+  options: BaseZodiacsReadOptions
+): Promise<BaseZodiacsOwnership> {
   const checkedAt = new Date().toISOString();
-  throwIfAborted(options.signal);
+  options.signal?.throwIfAborted();
   assertBaseChain(publicClient);
   const block = await getReadBlockNumber(publicClient, options);
-  throwIfAborted(options.signal);
-  const balances = await getBaseZodiacBalances(publicClient, ownerAddress, {
+  options.signal?.throwIfAborted();
+  const balances = await readBalances(publicClient, ownerAddress, {
     ...options,
     ...block
   });
-  throwIfAborted(options.signal);
+  options.signal?.throwIfAborted();
   const minBalance = options.minBalance ?? 1n;
   const holdings = balances
     .map<BaseZodiacsHolding>((balance) => ({
@@ -185,8 +247,10 @@ export async function getBaseZodiacsOwnership(
   };
 }
 
+/** Alias of getBaseZodiacsOwnership, including its single-contract fallback. */
 export const getBaseZodiacsOwnershipBatched = getBaseZodiacsOwnership;
 
+/** Returns only holdings meeting the raw-unit threshold of the Base ownership read. */
 export async function getBaseHeldZodiacs(
   publicClient: ZodiacsBasePublicClient,
   ownerAddress: string,
@@ -250,7 +314,8 @@ async function readBaseBatch(
   request: BaseBatchRead
 ): Promise<readonly ReadContractsResult[]> {
   try {
-    return await publicClient.readContracts!(request);
+    const results = await publicClient.readContracts!(request);
+    return Array.isArray(results) ? results : [];
   } catch (error) {
     return request.contracts.map(() => ({ status: "failure", error }));
   }
@@ -295,7 +360,7 @@ async function readBaseZodiacBalancesBatched(
   ownerAddress: string,
   options: BaseZodiacsReadOptions
 ): Promise<readonly BaseZodiacBalance[]> {
-  throwIfAborted(options.signal);
+  options.signal?.throwIfAborted();
   const representations = getAllBaseBridgedZodiacs();
   const normalizedOwner = normalizeOwnerAddress(ownerAddress);
 
@@ -313,7 +378,7 @@ async function readBaseZodiacBalancesBatched(
     representations,
     options
   );
-  throwIfAborted(options.signal);
+  options.signal?.throwIfAborted();
   const balanceResults = await readBaseBatch(publicClient, {
     contracts: representations.map((representation) => ({
       address: representation.address as `0x${string}`,
@@ -324,7 +389,7 @@ async function readBaseZodiacBalancesBatched(
     allowFailure: true,
     ...getBlockReadOptions(options)
   });
-  throwIfAborted(options.signal);
+  options.signal?.throwIfAborted();
 
   return representations.map((representation, index) => {
     const result = balanceResults?.[index];
@@ -382,6 +447,7 @@ async function getBaseDecimals(
     ...getBlockReadOptions(options)
   });
 
+  options.signal?.throwIfAborted();
   uncached.forEach((representation, index) => {
     const result = results?.[index];
     const address = representation.address.toLowerCase();
@@ -449,26 +515,24 @@ async function getReadBlockNumber(
   }
 
   try {
-    return { blockNumber: await publicClient.getBlockNumber() };
+    const blockNumber = options.signal
+      ? await publicClient.getBlockNumber({ signal: options.signal })
+      : await publicClient.getBlockNumber();
+    return typeof blockNumber === "bigint" && blockNumber >= 0n ? { blockNumber } : {};
   } catch {
     return {};
   }
 }
 
-function getBlockReadOptions(options: BaseZodiacsReadOptions): {
-  readonly blockNumber?: bigint;
-  readonly blockTag?: BaseZodiacsBlockTag;
-} {
-  if (options.blockNumber !== undefined) return { blockNumber: options.blockNumber };
-  return options.blockTag === undefined ? {} : { blockTag: options.blockTag };
+function getBlockReadOptions(options: BaseZodiacsReadOptions): BaseReadBlock {
+  return {
+    ...(options.signal && { signal: options.signal }),
+    ...(options.blockNumber !== undefined
+      ? { blockNumber: options.blockNumber }
+      : options.blockTag && { blockTag: options.blockTag })
+  };
 }
 
 function formatUnknownError(error: unknown, fallback: string): string {
   return error instanceof Error ? error.message : fallback;
-}
-
-function throwIfAborted(signal: AbortSignal | undefined): void {
-  if (signal?.aborted) {
-    throw new Error("Base Zodiacs ownership read aborted.");
-  }
 }

@@ -1,3 +1,4 @@
+import { cancellableMarketAdapter } from "./safe-read.js";
 import type { MarketAdapterConfig, ZodiacMarketAdapter } from "./types.js";
 import { parsePriceUsd } from "./price.js";
 import { unavailableMarketData } from "./unavailable.js";
@@ -15,13 +16,17 @@ interface DexScreenerResponse {
   readonly pairs?: readonly DexScreenerPair[] | null;
 }
 
+/**
+ * Creates a cancellable DEX Screener reader using the first returned pair. Missing pairs
+ * yield an unavailable snapshot.
+ */
 export function createDexScreenerMarketAdapter(
   config: MarketAdapterConfig = {}
 ): ZodiacMarketAdapter {
   const endpoint = config.endpoint ?? "https://api.dexscreener.com/latest/dex/tokens";
   const fetchImpl = config.fetchImpl ?? globalThis.fetch;
 
-  return {
+  return cancellableMarketAdapter({
     id: "dex-screener",
     readMarket: async (options) => {
       if (!options.token.mintAddress) {
@@ -110,7 +115,7 @@ export function createDexScreenerMarketAdapter(
         status: "ok"
       };
     }
-  };
+  });
 }
 
 function toFiniteNumber(value: number | null | undefined): number | null {
@@ -122,9 +127,13 @@ function isDexScreenerResponse(value: unknown): value is DexScreenerResponse {
     return false;
   }
 
-  return value.pairs === undefined || value.pairs === null || Array.isArray(value.pairs);
+  return (
+    value.pairs === undefined ||
+    value.pairs === null ||
+    (Array.isArray(value.pairs) && value.pairs.every(isRecord))
+  );
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null;
+  return typeof value === "object" && value !== null && !Array.isArray(value);
 }

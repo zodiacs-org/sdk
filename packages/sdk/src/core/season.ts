@@ -24,15 +24,18 @@ const ZODIAC_SEASONS = [
   { sign: "sagittarius", startMonth: 11, startDay: 22, endMonth: 12, endDay: 21 }
 ] as const satisfies readonly ZodiacSeasonDefinition[];
 
+/** Returns the fixed calendar season containing the supplied instant in UTC. Defaults to now. */
 export function getCurrentZodiacSeason(date: Date = new Date()): ZodiacSeason {
   return getZodiacSeasonForDate(date);
 }
 
+/** Finds the inclusive UTC date range containing a valid Date. Invalid dates throw. */
 export function getZodiacSeasonForDate(date: Date): ZodiacSeason {
   const definition = getSeasonDefinitionForDate(date);
   return buildSeason(definition, getStartYearForSeason(definition, date), true);
 }
 
+/** Returns the following fixed UTC calendar season, advancing the year across December. */
 export function getNextZodiacSeason(date: Date = new Date()): ZodiacSeason {
   const current = getSeasonDefinitionForDate(date);
   const next = ZODIAC_SEASONS[(ZODIAC_SEASONS.indexOf(current) + 1) % ZODIAC_SEASONS.length]!;
@@ -40,6 +43,10 @@ export function getNextZodiacSeason(date: Date = new Date()): ZodiacSeason {
   return buildSeason(next, year, false);
 }
 
+/**
+ * Measures elapsed UTC time through the current season, as a percentage rounded to two
+ * decimal places.
+ */
 export function getZodiacSeasonProgress(date: Date = new Date()): ZodiacSeasonProgress {
   const definition = getSeasonDefinitionForDate(date);
   const year = getStartYearForSeason(definition, date);
@@ -58,7 +65,14 @@ export function getZodiacSeasonProgress(date: Date = new Date()): ZodiacSeasonPr
 }
 
 function getSeasonDefinitionForDate(date: Date): (typeof ZODIAC_SEASONS)[number] {
-  if (Number.isNaN(date.getTime())) throw new Error("Invalid date.");
+  // Date.prototype works across realms and rejects non-Date values at the JS boundary.
+  let time: number;
+  try {
+    time = Date.prototype.getTime.call(date);
+  } catch {
+    throw new Error("Invalid date.");
+  }
+  if (!Number.isFinite(time)) throw new Error("Invalid date.");
   const month = date.getUTCMonth() + 1;
   const day = date.getUTCDate();
   return ZODIAC_SEASONS.find(

@@ -1,8 +1,12 @@
+import { InvalidZodiacSignError } from "./core/errors.js";
 import type { ZodiacSign } from "./core/index.js";
 
+/** Visual style identifier for the bundled circular sign icons. */
 export type ZodiacIconStyle = "circle";
+/** File format identifier for the packaged PNG icons. */
 export type ZodiacIconFormat = "png";
 
+/** Static image metadata, package path, dimensions and SHA-256 digest for a sign. */
 export interface ZodiacIconAsset {
   readonly sign: ZodiacSign;
   readonly displayName: string;
@@ -16,6 +20,7 @@ export interface ZodiacIconAsset {
   readonly sha256: string;
 }
 
+/** Manifest of the twelve packaged circular PNG assets in zodiac order. */
 export const ZODIAC_CIRCLE_ICON_ASSETS = [
   {
     sign: "aries",
@@ -163,14 +168,19 @@ export const ZODIAC_CIRCLE_ICON_ASSETS = [
   }
 ] as const satisfies readonly ZodiacIconAsset[];
 
+/** Returns the packaged icon manifest without reading image files. */
 export function getAllZodiacIconAssets(): readonly ZodiacIconAsset[] {
   return ZODIAC_CIRCLE_ICON_ASSETS;
 }
 
+/** Returns the bundled icon metadata for one registry sign. An unknown sign throws InvalidZodiacSignError. */
 export function getZodiacIconAsset(sign: ZodiacSign): ZodiacIconAsset {
-  return ZODIAC_CIRCLE_ICON_ASSETS.find((asset) => asset.sign === sign)!;
+  const asset = ZODIAC_CIRCLE_ICON_ASSETS.find((item) => item.sign === sign);
+  if (!asset) throw new InvalidZodiacSignError(sign);
+  return asset;
 }
 
+/** Returns the importable package subpath for a sign's circular PNG. */
 export function getZodiacIconAssetPath(sign: ZodiacSign): ZodiacIconAsset["packagePath"] {
   return getZodiacIconAsset(sign).packagePath;
 }

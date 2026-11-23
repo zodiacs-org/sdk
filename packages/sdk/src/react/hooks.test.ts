@@ -12,6 +12,7 @@ import type { AsyncHookState } from "./hooks.js";
 import type { PublicClient } from "viem";
 
 const mockState = vi.hoisted(() => ({
+  cleanup: undefined as (() => void) | void,
   contextValue: null as ZodiacsContextValue | null,
   latestEffectDeps: null as readonly unknown[] | undefined | null,
   latestHookState: null as AsyncHookState<ZodiacBalanceResult> | null
@@ -25,7 +26,7 @@ vi.mock("react", async () => {
     useCallback: (callback: unknown) => callback,
     useEffect: (effect: () => void | (() => void), deps?: readonly unknown[]) => {
       mockState.latestEffectDeps = deps;
-      effect();
+      mockState.cleanup = effect();
     },
     useMemo: (factory: () => unknown) => factory(),
     useState: (initial: unknown | (() => unknown)) => {
@@ -61,6 +62,7 @@ vi.mock("./context.js", () => ({
 const walletAddress = "CWKQJJYec89wcx871C8vmyTPc3jhsdoAYs5aGffUtELJ";
 
 beforeEach(() => {
+  mockState.cleanup = undefined;
   mockState.contextValue = createMockContext();
   mockState.latestEffectDeps = null;
   mockState.latestHookState = null;
@@ -187,6 +189,24 @@ describe("useZodiacBalance", () => {
       reason: "RPC unavailable",
       status: "unavailable"
     });
+  });
+
+  it("aborts the active reader on cleanup without committing a stale result", async () => {
+    let active: AbortSignal | undefined;
+    mockState.contextValue = createMockContext({
+      balanceReader: {
+        getTokenBalance: async (_owner, _mint, _token, options) => {
+          active = options?.signal;
+          return new Promise(() => {});
+        }
+      }
+    });
+    const { useZodiacBalance } = await import("./hooks.js");
+    useZodiacBalance("aries", walletAddress);
+    expect(active?.aborted).toBe(false);
+    mockState.cleanup?.();
+    expect(active?.aborted).toBe(true);
+    expect((await currentHookState()).error).toBeNull();
   });
 
   it("tracks a replacement abort signal in the Base ownership hook", async () => {

@@ -20,11 +20,13 @@ import type {
 import { formatTokenAmount, rawAmountToNumber } from "./core/format.js";
 import { ZODIAC_SIGNS } from "./core/types.js";
 
+/** Selects the owner label and held native signs in a local ownership fixture. */
 export interface MockOwnershipOptions {
   readonly heldSigns?: readonly ZodiacSign[];
   readonly walletAddress?: string;
 }
 
+/** Configures raw bigint balances, decimals and block height in a local Base client. */
 export interface MockBasePublicClientOptions {
   readonly heldSigns?: readonly ZodiacSign[];
   readonly rawAmountsBySign?: Partial<Record<ZodiacSign, bigint>>;
@@ -32,12 +34,14 @@ export interface MockBasePublicClientOptions {
   readonly blockNumber?: bigint;
 }
 
+/** Configures raw SPL amount strings and decimals in a local parsed-account connection. */
 export interface MockSolanaConnectionOptions {
   readonly heldSigns?: readonly ZodiacSign[];
   readonly rawAmountsBySign?: Partial<Record<ZodiacSign, string>>;
   readonly decimals?: number;
 }
 
+/** Builds a fixed-date Solana ownership snapshot with one whole token per selected sign. */
 export function createMockOwnership(options: MockOwnershipOptions = {}): ZodiacsOwnership {
   const heldSigns = options.heldSigns ?? [];
   const walletAddress = options.walletAddress ?? "CWKQJJYec89wcx871C8vmyTPc3jhsdoAYs5aGffUtELJ";
@@ -90,16 +94,20 @@ export function createMockOwnership(options: MockOwnershipOptions = {}): Zodiacs
   };
 }
 
+/** Solana snapshot with all twelve balances confirmed zero. */
 export const mockEmptyOwnership: ZodiacsOwnership = createMockOwnership();
 
+/** Solana snapshot holding Aries only. */
 export const mockOneSignOwnership: ZodiacsOwnership = createMockOwnership({
   heldSigns: ["aries"]
 });
 
+/** Solana snapshot holding all twelve signs. */
 export const mockFullWheelOwnership: ZodiacsOwnership = createMockOwnership({
   heldSigns: ZODIAC_SIGNS
 });
 
+/** Fixture holding Aries and Gemini on Solana and Gemini and Taurus on Base. */
 export const mockMixedCrossChainOwnership: CrossChainZodiacsOwnership = {
   solana: createMockOwnership({
     heldSigns: ["aries", "gemini"]
@@ -109,8 +117,10 @@ export const mockMixedCrossChainOwnership: CrossChainZodiacsOwnership = {
   })
 };
 
+/** The bundled official registry exposed for fixture use. */
 export const mockRegistry = ZODIACS_REGISTRY;
 
+/** Creates an in-memory Base client supporting both single and batched contract reads. */
 export function mockBasePublicClient(
   options: MockBasePublicClientOptions = {}
 ): ZodiacsBasePublicClient {
@@ -159,8 +169,10 @@ export function mockBasePublicClient(
   };
 }
 
+/** Alias of mockBasePublicClient with batched contract reads enabled. */
 export const mockBasePublicClientWithReadContracts = mockBasePublicClient;
 
+/** Creates a Base fixture that exercises single-contract fallback reads. */
 export function mockBasePublicClientWithoutReadContracts(
   options: MockBasePublicClientOptions = {}
 ): ZodiacsBasePublicClient {
@@ -173,6 +185,7 @@ export function mockBasePublicClientWithoutReadContracts(
   };
 }
 
+/** Creates a Base fixture whose Aries balance lookup fails. */
 export function mockPartialFailureBaseClient(
   options: MockBasePublicClientOptions = {}
 ): ZodiacsBasePublicClient {
@@ -212,6 +225,7 @@ export function mockPartialFailureBaseClient(
   };
 }
 
+/** Creates a local Solana fixture supporting wallet scans and mint-filtered reads. */
 export function mockSolanaConnection(
   options: MockSolanaConnectionOptions = {}
 ): SolanaBalanceConnection {
@@ -249,8 +263,10 @@ export function mockSolanaConnection(
   };
 }
 
+/** Alias of mockSolanaConnection with parsed wallet scans enabled. */
 export const mockSolanaConnectionWithWalletScan = mockSolanaConnection;
 
+/** Creates a fixture returning a malformed Aries amount in a wallet scan. */
 export function mockPartialFailureSolanaConnection(): SolanaBalanceConnection {
   return {
     getParsedTokenAccountsByOwner: async (
@@ -286,6 +302,7 @@ export function mockPartialFailureSolanaConnection(): SolanaBalanceConnection {
   };
 }
 
+/** Builds a fixed-date Base snapshot from selected signs or exact bigint balances. */
 export function createMockBaseOwnership(
   options: MockBasePublicClientOptions = {}
 ): BaseZodiacsOwnership {

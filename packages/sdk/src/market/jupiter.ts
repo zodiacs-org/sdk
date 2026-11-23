@@ -1,14 +1,19 @@
+import { cancellableMarketAdapter } from "./safe-read.js";
 import type { MarketAdapterConfig, ZodiacMarketAdapter } from "./types.js";
 import { parsePriceUsd } from "./price.js";
 import { unavailableMarketData } from "./unavailable.js";
 
 type JupiterPriceResponse = Record<string, { readonly usdPrice?: string | number }>;
 
+/**
+ * Creates a cancellable Jupiter price reader keyed by mint address. Provider failures yield
+ * unavailable snapshots.
+ */
 export function createJupiterMarketAdapter(config: MarketAdapterConfig = {}): ZodiacMarketAdapter {
   const endpoint = config.endpoint ?? "https://lite-api.jup.ag/price/v3";
   const fetchImpl = config.fetchImpl ?? globalThis.fetch;
 
-  return {
+  return cancellableMarketAdapter({
     id: "jupiter",
     readMarket: async (options) => {
       if (!options.token.mintAddress) {
@@ -96,7 +101,7 @@ export function createJupiterMarketAdapter(config: MarketAdapterConfig = {}): Zo
         status: "ok"
       };
     }
-  };
+  });
 }
 
 function isJupiterPriceResponse(value: unknown): value is JupiterPriceResponse {
@@ -108,5 +113,5 @@ function isJupiterPriceResponse(value: unknown): value is JupiterPriceResponse {
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null;
+  return typeof value === "object" && value !== null && !Array.isArray(value);
 }

@@ -4,6 +4,7 @@ import { useZodiacBalance, useZodiacToken } from "../react/index.js";
 import { ZodiacOwnershipBadge } from "./ZodiacOwnershipBadge.js";
 import { labelStyle, mutedTextStyle, rowStyle, surfaceStyle } from "./styles.js";
 
+/** Configures a sign card with an optional balance override or public owner for a lookup. */
 export interface ZodiacAssetCardProps {
   readonly sign: ZodiacSign;
   readonly ownerAddress?: string | null;
@@ -16,6 +17,7 @@ export interface ZodiacAssetCardProps {
   readonly style?: CSSProperties;
 }
 
+/** Renders token metadata and balance. Supplying a balance, including null, skips the lookup. */
 export function ZodiacAssetCard({
   sign,
   ownerAddress,

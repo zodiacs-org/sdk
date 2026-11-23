@@ -1,3 +1,5 @@
+import { validateMintAddress } from "./validation.js";
+import { runRead, type ReadOptions } from "./read-options.js";
 import {
   ZODIAC_SIGNS,
   type ZodiacsOwnership,
@@ -7,6 +9,7 @@ import {
   type ParsedTokenAccountResponse,
   type ReadonlyZodiacBalanceReader,
   type SolanaBalanceConnection,
+  type TokenAccountFilter,
   type TokenBalance,
   type ZodiacBalance,
   type ZodiacBalanceError,
@@ -15,7 +18,7 @@ import {
 import { isSolanaAddressLike, normalizeSolanaAddress } from "./address.js";
 import { getAllZodiacTokens, getZodiacToken } from "./registry.js";
 import { getAllSolanaNativeZodiacs, getSolanaZodiacRepresentation } from "./official-registry.js";
-import { rawAmountToNumber } from "./format.js";
+import { formatTokenAmount, rawAmountToNumber } from "./format.js";
 import { PartialOwnershipReadError, ZodiacsValidationError } from "./errors.js";
 
 const SPL_TOKEN_PROGRAM_ID = "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA";
@@ -25,18 +28,30 @@ interface SolanaPublicKeyLike {
   readonly toString: () => string;
 }
 
+const RPC_ID = "zodiacs-sdk-token-accounts";
+
 interface SolanaJsonRpcResponse {
+  readonly id?: unknown;
+  readonly jsonrpc?: unknown;
   readonly result?: ParsedTokenAccountResponse;
   readonly error?: {
     readonly message?: string;
   };
 }
 
-export interface SolanaZodiacsReadOptions {
-  readonly signal?: AbortSignal;
+/**
+ * Controls cancellation and how ownership reports per-mint read failures. The default
+ * failure mode is warn.
+ */
+export interface SolanaZodiacsReadOptions extends ReadOptions {
+  /** Defaults to warn. Ignore omits diagnostics, while throw rejects with PartialOwnershipReadError. */
   readonly onPartialFailure?: "throw" | "warn" | "ignore";
 }
 
+/**
+ * Accepts a parsed-account connection or creates a read-only JSON-RPC transport for an
+ * absolute URL. Invalid configurations throw ZodiacsValidationError.
+ */
 export function createSolanaConnection(
   connectionOrRpcUrl: ConnectionOrRpcUrl
 ): SolanaBalanceConnection {
@@ -72,44 +87,70 @@ export function createSolanaConnection(
   return createJsonRpcSolanaConnection(rpcUrl);
 }
 
+/**
+ * Builds a mint-filtered reader. It sums parsed accounts, returns null for zero and rejects
+ * invalid input or failed reads.
+ */
 export function createReadonlySolanaBalanceReader(
   connectionOrRpcUrl: ConnectionOrRpcUrl
 ): ReadonlyZodiacBalanceReader {
   const connection = createSolanaConnection(connectionOrRpcUrl);
 
   return {
-    getTokenBalance: async (ownerAddress, mintAddress, token): Promise<TokenBalance | null> => {
-      const walletPublicKey = createPublicKey(ownerAddress, "wallet address");
-      const mintPublicKey = createPublicKey(mintAddress, `${token.sign} mint address`);
-      const response = await connection.getParsedTokenAccountsByOwner(walletPublicKey, {
-        mint: mintPublicKey
-      });
-      const amount = normalizeParsedTokenAccounts(
-        response,
-        token.decimals,
-        mintPublicKey.toBase58()
-      );
+    getTokenBalance: (ownerAddress, mintAddress, token, options = {}) =>
+      runRead(options, async ({ signal }): Promise<TokenBalance | null> => {
+        const walletPublicKey = createPublicKey(ownerAddress, "wallet address");
+        const mintPublicKey = createPublicKey(mintAddress, `${token.sign} mint address`);
+        const response = await readAccounts(
+          connection,
+          walletPublicKey,
+          { mint: mintPublicKey },
+          signal
+        );
+        signal?.throwIfAborted();
+        const amount = normalizeParsedTokenAccounts(
+          response,
+          token.decimals,
+          mintPublicKey.toBase58()
+        );
 
-      if (amount.rawAmount === "0") {
-        return null;
-      }
+        if (amount.rawAmount === "0") {
+          return null;
+        }
 
-      return {
-        ownerAddress,
-        mintAddress,
-        amountRaw: amount.rawAmount,
-        decimals: amount.decimals,
-        uiAmount: amount.uiAmount
-      };
-    }
+        return {
+          ownerAddress,
+          mintAddress,
+          amountRaw: amount.rawAmount,
+          decimals: amount.decimals,
+          uiAmount: amount.uiAmount
+        };
+      })
   };
 }
 
+/**
+ * Sums SPL accounts for one sign. Invalid inputs and cancellation reject. A failed RPC or
+ * malformed amount yields an unavailable balance.
+ */
 export async function getZodiacBalance(
   connectionOrRpcUrl: ConnectionOrRpcUrl,
   walletAddress: string,
-  sign: ZodiacSign
+  sign: ZodiacSign,
+  options: ReadOptions = {}
 ): Promise<ZodiacBalance> {
+  return runRead(options, ({ signal }) =>
+    readBalance(connectionOrRpcUrl, walletAddress, sign, signal)
+  );
+}
+
+async function readBalance(
+  connectionOrRpcUrl: ConnectionOrRpcUrl,
+  walletAddress: string,
+  sign: ZodiacSign,
+  signal?: AbortSignal
+): Promise<ZodiacBalance> {
+  signal?.throwIfAborted();
   assertZodiacSignInput(sign);
   const walletPublicKey = createPublicKey(walletAddress, "wallet address");
   const token = getZodiacToken(sign);
@@ -117,10 +158,14 @@ export async function getZodiacBalance(
   const connection = createSolanaConnection(connectionOrRpcUrl);
 
   try {
-    const response = await connection.getParsedTokenAccountsByOwner(walletPublicKey, {
-      mint: mintPublicKey
-    });
+    const response = await readAccounts(
+      connection,
+      walletPublicKey,
+      { mint: mintPublicKey },
+      signal
+    );
 
+    signal?.throwIfAborted();
     const amount = normalizeParsedTokenAccounts(response, token.decimals, mintPublicKey.toBase58());
 
     return {
@@ -139,6 +184,7 @@ export async function getZodiacBalance(
       status: amount.rawAmount === "0" ? "zero" : "ok"
     };
   } catch (error) {
+    signal?.throwIfAborted();
     return unavailableBalance(
       sign,
       walletAddress,
@@ -147,12 +193,30 @@ export async function getZodiacBalance(
   }
 }
 
+/**
+ * Scans token accounts by owner, falling back to mint reads if the scan fails. Only
+ * successful zero reads confirm absence.
+ * @param connectionOrRpcUrl - Parsed-account connection or absolute Solana JSON-RPC URL.
+ * @param walletAddress - Base58-encoded 32-byte public key.
+ * @param options - Cancellation, whole-read deadline and per-mint failure policy.
+ * @throws ZodiacsValidationError for invalid input, or PartialOwnershipReadError in throw mode.
+ * @throws The signal reason on abort, or a TimeoutError DOMException on deadline expiry.
+ */
 export async function getZodiacsOwnership(
   connectionOrRpcUrl: ConnectionOrRpcUrl,
   walletAddress: string,
   options: SolanaZodiacsReadOptions = {}
 ): Promise<ZodiacsOwnership> {
-  throwIfAborted(options.signal);
+  return runRead(options, (controls) =>
+    readOwnership(connectionOrRpcUrl, walletAddress, { ...options, ...controls })
+  );
+}
+
+async function readOwnership(
+  connectionOrRpcUrl: ConnectionOrRpcUrl,
+  walletAddress: string,
+  options: SolanaZodiacsReadOptions
+): Promise<ZodiacsOwnership> {
   const checkedAt = new Date().toISOString();
   const walletPublicKey = createPublicKey(walletAddress, "wallet address");
   const connection = createSolanaConnection(connectionOrRpcUrl);
@@ -160,17 +224,20 @@ export async function getZodiacsOwnership(
   let balances: readonly ZodiacBalance[];
 
   try {
-    const response = await connection.getParsedTokenAccountsByOwner(walletPublicKey, {
-      programId: SPL_TOKEN_PROGRAM_ID
-    });
-    throwIfAborted(options.signal);
+    const response = await readAccounts(
+      connection,
+      walletPublicKey,
+      { programId: SPL_TOKEN_PROGRAM_ID },
+      options.signal
+    );
+    options.signal?.throwIfAborted();
     balances = normalizeWalletTokenAccounts(response, walletAddress);
   } catch {
-    throwIfAborted(options.signal);
+    options.signal?.throwIfAborted();
     balances = await Promise.all(
-      ZODIAC_SIGNS.map((sign) => getZodiacBalance(connection, walletAddress, sign))
+      ZODIAC_SIGNS.map((sign) => readBalance(connection, walletAddress, sign, options.signal))
     );
-    throwIfAborted(options.signal);
+    options.signal?.throwIfAborted();
   }
 
   const holdings = balances.map<ZodiacsHolding>((balance) => ({
@@ -212,27 +279,40 @@ export async function getZodiacsOwnership(
   };
 }
 
+/** Alias of getZodiacBalance for one native SPL mint. */
 export const getSolanaZodiacBalance = getZodiacBalance;
 
+/**
+ * Reads the twelve native balances concurrently in registry order with one cancellation
+ * deadline.
+ */
 export async function getSolanaZodiacBalances(
   connectionOrRpcUrl: ConnectionOrRpcUrl,
-  walletAddress: string
+  walletAddress: string,
+  options: ReadOptions = {}
 ): Promise<readonly ZodiacBalance[]> {
   const connection = createSolanaConnection(connectionOrRpcUrl);
-  return Promise.all(ZODIAC_SIGNS.map((sign) => getZodiacBalance(connection, walletAddress, sign)));
+  return runRead(options, ({ signal }) =>
+    Promise.all(ZODIAC_SIGNS.map((sign) => readBalance(connection, walletAddress, sign, signal)))
+  );
 }
 
+/** Alias of getZodiacsOwnership for native Solana holdings. */
 export const getSolanaZodiacsOwnership = getZodiacsOwnership;
 
+/** Alias of getZodiacsOwnership. The initial wallet scan covers all official mints. */
 export const getSolanaZodiacsOwnershipBatched = getZodiacsOwnership;
 
+/** Alias of getHeldZodiacs for native Solana holdings. */
 export const getSolanaHeldZodiacs = getHeldZodiacs;
 
+/** Returns the positive native holdings from a wallet-level ownership read. */
 export async function getHeldZodiacs(
   connectionOrRpcUrl: ConnectionOrRpcUrl,
-  walletAddress: string
+  walletAddress: string,
+  options: SolanaZodiacsReadOptions = {}
 ): Promise<readonly ZodiacsHolding[]> {
-  const ownership = await getZodiacsOwnership(connectionOrRpcUrl, walletAddress);
+  const ownership = await getZodiacsOwnership(connectionOrRpcUrl, walletAddress, options);
   return ownership.holdings.filter((holding) => holding.held);
 }
 
@@ -282,7 +362,7 @@ function normalizeParsedTokenAccounts(
     rawAmount,
     decimals,
     uiAmount: rawAmountToNumber(rawAmount, decimals),
-    uiAmountString: formatRawAmountString(rawAmount, decimals)
+    uiAmountString: formatTokenAmount(rawAmount, decimals)
   };
 }
 
@@ -313,6 +393,8 @@ function normalizeWalletTokenAccounts(
       throw new Error("Invalid RPC response: wallet scan account is missing a mint.");
     }
     if (!tokensByMint.has(mintAddress)) {
+      if (!validateMintAddress(mintAddress))
+        throw new Error("Invalid RPC response: malformed account mint.");
       continue;
     }
 
@@ -373,7 +455,7 @@ function normalizeWalletTokenAccounts(
       rawAmount,
       decimals,
       uiAmount: rawAmountToNumber(rawAmount, decimals),
-      uiAmountString: formatRawAmountString(rawAmount, decimals),
+      uiAmountString: formatTokenAmount(rawAmount, decimals),
       status: rawAmount === "0" ? "zero" : "ok"
     };
   });
@@ -382,6 +464,11 @@ function normalizeWalletTokenAccounts(
 function assertParsedAmount(amount: ParsedTokenAccountAmount): void {
   if (typeof amount.amount !== "string" || !/^\d+$/u.test(amount.amount)) {
     throw new Error("Invalid RPC response: token amount must be an unsigned integer string.");
+  }
+
+  const digits = amount.amount.replace(/^0+/u, "");
+  if (digits.length > 20 || (digits.length === 20 && digits > "18446744073709551615")) {
+    throw new Error("Invalid RPC response: token account amount exceeds u64.");
   }
 
   if (!Number.isInteger(amount.decimals) || amount.decimals < 0 || amount.decimals > 18) {
@@ -449,10 +536,15 @@ function collectSolanaWarnings(balances: readonly ZodiacBalance[]) {
   );
 }
 
-function throwIfAborted(signal: AbortSignal | undefined): void {
-  if (signal?.aborted) {
-    throw new Error("Solana Zodiacs ownership read aborted.");
-  }
+function readAccounts(
+  connection: SolanaBalanceConnection,
+  owner: unknown,
+  filter: TokenAccountFilter,
+  signal?: AbortSignal
+) {
+  return signal && connection.getParsedTokenAccountsByOwnerWithSignal
+    ? connection.getParsedTokenAccountsByOwnerWithSignal(owner, filter, signal)
+    : connection.getParsedTokenAccountsByOwner(owner, filter);
 }
 
 function createPublicKey(value: string, label: string): SolanaPublicKeyLike {
@@ -472,44 +564,58 @@ function createPublicKey(value: string, label: string): SolanaPublicKeyLike {
 }
 
 function createJsonRpcSolanaConnection(rpcUrl: string): SolanaBalanceConnection {
-  return {
-    getParsedTokenAccountsByOwner: async (
-      ownerAddress,
-      filter
-    ): Promise<ParsedTokenAccountResponse> => {
-      const owner = stringifyPublicKey(ownerAddress);
-      const tokenFilter =
-        "mint" in filter
-          ? { mint: stringifyPublicKey(filter.mint) }
-          : { programId: stringifyPublicKey(filter.programId) };
-      const response = await fetch(rpcUrl, {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({
-          jsonrpc: "2.0",
-          id: "zodiacs-sdk-token-accounts",
-          method: "getTokenAccountsByOwner",
-          params: [owner, tokenFilter, { encoding: "jsonParsed", commitment: "confirmed" }]
-        })
-      });
+  const read = async (
+    ownerAddress: unknown,
+    filter: TokenAccountFilter,
+    signal?: AbortSignal
+  ): Promise<ParsedTokenAccountResponse> => {
+    const owner = stringifyPublicKey(ownerAddress);
+    const tokenFilter =
+      "mint" in filter
+        ? { mint: stringifyPublicKey(filter.mint) }
+        : { programId: stringifyPublicKey(filter.programId) };
+    const response = await fetch(rpcUrl, {
+      ...(signal && { signal }),
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        jsonrpc: "2.0",
+        id: RPC_ID,
+        method: "getTokenAccountsByOwner",
+        params: [owner, tokenFilter, { encoding: "jsonParsed", commitment: "confirmed" }]
+      })
+    });
 
-      if (!response.ok) {
-        throw new Error(`Solana RPC request failed with HTTP ${response.status}.`);
-      }
-
-      const payload = (await response.json()) as SolanaJsonRpcResponse;
-
-      if (payload.error) {
-        throw new Error(payload.error.message ?? "Solana RPC request failed.");
-      }
-
-      if (!payload.result || !Array.isArray(payload.result.value)) {
-        throw new Error("Invalid RPC response: expected token account array.");
-      }
-
-      return payload.result;
+    if (!response.ok) {
+      throw new Error(`Solana RPC request failed with HTTP ${response.status}.`);
     }
+
+    let payload: SolanaJsonRpcResponse | null;
+    try {
+      payload = (await response.json()) as SolanaJsonRpcResponse | null;
+    } catch {
+      signal?.throwIfAborted();
+      throw new Error("Invalid RPC response: expected JSON.");
+    }
+
+    if (
+      payload?.jsonrpc !== "2.0" ||
+      payload.id !== RPC_ID ||
+      (payload.result !== undefined && payload.error !== undefined)
+    ) {
+      throw new Error("Invalid RPC response: mismatched JSON-RPC envelope.");
+    }
+    if (payload.error) {
+      throw new Error(payload.error.message ?? "Solana RPC request failed.");
+    }
+
+    if (!payload.result || !Array.isArray(payload.result.value)) {
+      throw new Error("Invalid RPC response: expected token account array.");
+    }
+
+    return payload.result;
   };
+  return { getParsedTokenAccountsByOwner: read, getParsedTokenAccountsByOwnerWithSignal: read };
 }
 
 function stringifyPublicKey(value: unknown): string {
@@ -539,20 +645,4 @@ function assertZodiacSignInput(value: string): asserts value is ZodiacSign {
   if (!ZODIAC_SIGNS.includes(value as ZodiacSign)) {
     throw new ZodiacsValidationError("invalid-zodiac-sign", `Invalid zodiac sign: ${value}`);
   }
-}
-
-function formatRawAmountString(rawAmount: string, decimals: number): string {
-  if (rawAmount === "0") {
-    return "0";
-  }
-
-  if (decimals === 0) {
-    return rawAmount;
-  }
-
-  const padded = rawAmount.padStart(decimals + 1, "0");
-  const whole = padded.slice(0, -decimals);
-  const fractional = padded.slice(-decimals).replace(/0+$/u, "");
-
-  return fractional ? `${whole}.${fractional}` : whole;
 }

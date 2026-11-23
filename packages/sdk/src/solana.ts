@@ -35,3 +35,5 @@ export type {
   ZodiacsOwnership,
   ZodiacsOwnershipStatus
 } from "./core/types.js";
+export type { ReadOptions } from "./core/read-options.js";
+export { isSolanaSignatureLike } from "./core/address.js";
