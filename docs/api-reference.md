@@ -26,6 +26,10 @@ import { ProfileSummaryCard } from "@zodiacs/sdk/ui";
 - `@zodiacs/sdk/testing`: typed fixtures and mock clients.
 - `@zodiacs/sdk/assets`: official display asset metadata and packaged icon paths.
 
+The SDK JavaScript entrypoints use ESM. From CommonJS, load them with
+`await import("@zodiacs/sdk")` or a documented subpath. Synchronous `require()`
+has no export target.
+
 ## Read APIs
 
 - `getBaseZodiacsOwnership(publicClient, owner, options)`
@@ -35,7 +39,11 @@ import { ProfileSummaryCard } from "@zodiacs/sdk/ui";
 - `getCrossChainZodiacsOwnership({ base, solana })`
 
 Base options include `includeZeroBalances`, `minBalance`, `blockNumber`, `blockTag`, `signal`, and
-`onPartialFailure`.
+`onPartialFailure`. A client with an explicit chain ID must target Base mainnet
+(8453). When the client supplies a latest block number, the ownership reader
+pins both balance and decimals calls to that height. Tagged reads such as
+`safe` and `finalized` omit the numeric height. Failed reads appear in
+`unavailableSigns`, and cancelled ownership requests reject.
 
 Ownership responses distinguish checked absence from read failures:
 

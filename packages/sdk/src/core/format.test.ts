@@ -55,6 +55,13 @@ describe("formatTokenAmount", () => {
     ).toBe("1");
   });
 
+  it("formats padded amounts canonically and requires exact numeric input", () => {
+    expect(formatTokenAmount("0001500", 3)).toBe("1.5");
+    expect(formatTokenAmount("0000", 0)).toBe("0");
+    expect(() => formatTokenAmount(Number.MAX_SAFE_INTEGER + 1, 0)).toThrow();
+    expect(rawAmountToNumber("1" + "0".repeat(309), 18)).toBe(1e291);
+  });
+
   it("rejects malformed amounts and out-of-range decimals", () => {
     expect(() => formatTokenAmount("-5", 6)).toThrow();
     expect(() => formatTokenAmount("1.5", 6)).toThrow();

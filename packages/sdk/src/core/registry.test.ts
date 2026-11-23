@@ -9,7 +9,21 @@ import {
 } from "./registry.js";
 import { ZODIAC_SIGNS } from "./types.js";
 
+import { isZodiacSign, normalizeZodiacSign, assertZodiacSign } from "./validation.js";
+import { InvalidZodiacSignError } from "./errors.js";
+
 describe("zodiac token registry", () => {
+  it("narrows only canonical sign keys and normalizes user input explicitly", () => {
+    for (const sign of ZODIAC_SIGNS) {
+      expect(isZodiacSign(sign)).toBe(true);
+      const padded = " " + sign.toUpperCase() + " ";
+      expect(isZodiacSign(padded)).toBe(false);
+      expect(normalizeZodiacSign(padded)).toBe(sign);
+      expect(assertZodiacSign(padded)).toBe(sign);
+    }
+    expect(() => assertZodiacSign("unknown")).toThrow(InvalidZodiacSignError);
+  });
+
   it("contains exactly twelve zodiac tokens", () => {
     expect(getAllZodiacTokens()).toHaveLength(12);
   });

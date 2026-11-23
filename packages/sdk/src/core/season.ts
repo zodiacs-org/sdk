@@ -24,113 +24,75 @@ const ZODIAC_SEASONS = [
   { sign: "sagittarius", startMonth: 11, startDay: 22, endMonth: 12, endDay: 21 }
 ] as const satisfies readonly ZodiacSeasonDefinition[];
 
-const MS_PER_DAY = 24 * 60 * 60 * 1000;
-
 export function getCurrentZodiacSeason(date: Date = new Date()): ZodiacSeason {
   return getZodiacSeasonForDate(date);
 }
 
 export function getZodiacSeasonForDate(date: Date): ZodiacSeason {
-  const target = normalizeDate(date);
-  const definition = getSeasonDefinitionForDate(target);
-
-  return buildSeason(definition, target, true);
+  const definition = getSeasonDefinitionForDate(date);
+  return buildSeason(definition, getStartYearForSeason(definition, date), true);
 }
 
 export function getNextZodiacSeason(date: Date = new Date()): ZodiacSeason {
-  const target = normalizeDate(date);
-  const currentDefinition = getSeasonDefinitionForDate(target);
-  const currentSeason = buildSeason(currentDefinition, target, true);
-  const currentIndex = ZODIAC_SEASONS.findIndex((season) => season.sign === currentDefinition.sign);
-  const nextDefinition = ZODIAC_SEASONS[(currentIndex + 1) % ZODIAC_SEASONS.length]!;
-  const nextStartDate = new Date(parseIsoDate(currentSeason.endDate).getTime() + MS_PER_DAY);
-
-  return buildSeason(nextDefinition, nextStartDate, false);
+  const current = getSeasonDefinitionForDate(date);
+  const next = ZODIAC_SEASONS[(ZODIAC_SEASONS.indexOf(current) + 1) % ZODIAC_SEASONS.length]!;
+  const year = getStartYearForSeason(current, date) + Number(next.startMonth < current.startMonth);
+  return buildSeason(next, year, false);
 }
 
 export function getZodiacSeasonProgress(date: Date = new Date()): ZodiacSeasonProgress {
-  const target = normalizeDate(date);
-  const season = getZodiacSeasonForDate(target);
-  const start = parseIsoDate(season.startDate);
-  const endExclusive = new Date(parseIsoDate(season.endDate).getTime() + MS_PER_DAY);
-  const elapsed = Math.max(0, target.getTime() - start.getTime());
-  const total = Math.max(MS_PER_DAY, endExclusive.getTime() - start.getTime());
-  const progress = roundPercentage(Math.min(100, Math.max(0, (elapsed / total) * 100)));
-
+  const definition = getSeasonDefinitionForDate(date);
+  const year = getStartYearForSeason(definition, date);
+  // The Gregorian calendar repeats every 400 years. Measure the interval in an
+  // equivalent year so its end can extend past JavaScript's last valid Date.
+  const relativeYear = 2000 + (year % 400);
+  const endYear = relativeYear + Number(definition.endMonth < definition.startMonth);
+  const start = Date.UTC(relativeYear, definition.startMonth - 1, definition.startDay);
+  const end = Date.UTC(endYear, definition.endMonth - 1, definition.endDay + 1);
+  const relativeDate = new Date(date.getTime());
+  relativeDate.setUTCFullYear(relativeYear + (date.getUTCFullYear() - year));
   return {
-    ...season,
-    progress
+    ...buildSeason(definition, year, true),
+    progress: roundPercentage(((relativeDate.getTime() - start) / (end - start)) * 100)
   };
 }
 
-function getSeasonDefinitionForDate(date: Date): ZodiacSeasonDefinition {
-  return (
-    ZODIAC_SEASONS.find((definition) => {
-      const startYear = getStartYearForSeason(definition, date);
-      const start = utcDate(startYear, definition.startMonth, definition.startDay);
-      const endYear = definition.endMonth < definition.startMonth ? startYear + 1 : startYear;
-      const endExclusive = new Date(
-        utcDate(endYear, definition.endMonth, definition.endDay).getTime() + MS_PER_DAY
-      );
+function getSeasonDefinitionForDate(date: Date): (typeof ZODIAC_SEASONS)[number] {
+  if (Number.isNaN(date.getTime())) throw new Error("Invalid date.");
+  const month = date.getUTCMonth() + 1;
+  const day = date.getUTCDate();
+  return ZODIAC_SEASONS.find(
+    (season) =>
+      (month === season.startMonth && day >= season.startDay) ||
+      (month === season.endMonth && day <= season.endDay)
+  )!;
+}
 
-      return date.getTime() >= start.getTime() && date.getTime() < endExclusive.getTime();
-    }) ?? ZODIAC_SEASONS[0]!
-  );
+function getStartYearForSeason(season: ZodiacSeasonDefinition, date: Date): number {
+  return date.getUTCFullYear() - Number(date.getUTCMonth() + 1 < season.startMonth);
 }
 
 function buildSeason(
   definition: ZodiacSeasonDefinition,
-  dateInSeason: Date,
+  startYear: number,
   isCurrent: boolean
 ): ZodiacSeason {
-  const startYear = getStartYearForSeason(definition, dateInSeason);
-  const endYear = definition.endMonth < definition.startMonth ? startYear + 1 : startYear;
-  const asset = getZodiacAsset(definition.sign);
-
+  const endYear = startYear + Number(definition.endMonth < definition.startMonth);
   return {
     sign: definition.sign,
-    displayName: asset.displayName,
-    startDate: toIsoDate(utcDate(startYear, definition.startMonth, definition.startDay)),
-    endDate: toIsoDate(utcDate(endYear, definition.endMonth, definition.endDay)),
+    displayName: getZodiacAsset(definition.sign).displayName,
+    startDate: toIsoDate(startYear, definition.startMonth, definition.startDay),
+    endDate: toIsoDate(endYear, definition.endMonth, definition.endDay),
     isCurrent
   };
 }
 
-function getStartYearForSeason(definition: ZodiacSeasonDefinition, date: Date): number {
-  const year = date.getUTCFullYear();
-
-  if (
-    definition.endMonth < definition.startMonth &&
-    date.getUTCMonth() + 1 <= definition.endMonth
-  ) {
-    return year - 1;
-  }
-
-  return year;
-}
-
-function normalizeDate(date: Date): Date {
-  if (Number.isNaN(date.getTime())) {
-    throw new Error("Invalid date.");
-  }
-
-  return new Date(date.getTime());
-}
-
-function utcDate(year: number, month: number, day: number): Date {
-  // Date.UTC maps years 0 through 99 to 1900 through 1999.
-  const date = new Date(0);
-  date.setUTCFullYear(year, month - 1, day);
-  return date;
-}
-
-function toIsoDate(date: Date): string {
-  const iso = date.toISOString();
-  return iso.slice(0, iso.indexOf("T"));
-}
-
-function parseIsoDate(value: string): Date {
-  return new Date(`${value}T00:00:00.000Z`);
+function toIsoDate(year: number, month: number, day: number): string {
+  const isoYear =
+    year >= 0 && year <= 9999
+      ? String(year).padStart(4, "0")
+      : (year < 0 ? "-" : "+") + String(Math.abs(year)).padStart(6, "0");
+  return [isoYear, String(month).padStart(2, "0"), String(day).padStart(2, "0")].join("-");
 }
 
 function roundPercentage(value: number): number {

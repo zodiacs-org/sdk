@@ -53,6 +53,25 @@ describe("zodiac season helpers", () => {
     expect(getNextZodiacSeason(january).startDate).toBe("0000-01-20");
   });
 
+  it("returns season bounds and progress at both limits of Date", () => {
+    const last = new Date(8640000000000000);
+    expect(getZodiacSeasonProgress(last)).toMatchObject({
+      sign: "virgo",
+      startDate: "+275760-08-23",
+      endDate: "+275760-09-22",
+      progress: 67.74
+    });
+    expect(getNextZodiacSeason(last).startDate).toBe("+275760-09-23");
+    const first = new Date(-8640000000000000);
+    expect(getZodiacSeasonProgress(first)).toMatchObject({
+      sign: "taurus",
+      startDate: "-271821-04-20",
+      endDate: "-271821-05-20",
+      progress: 0
+    });
+    expect(getNextZodiacSeason(first).sign).toBe("gemini");
+  });
+
   it("returns display-safe season progress as a percentage", () => {
     expect(getZodiacSeasonProgress(new Date("2026-03-21T00:00:00.000Z"))).toMatchObject({
       sign: "aries",

@@ -180,18 +180,13 @@ export function mockPartialFailureBaseClient(
 
   return {
     ...healthy,
-    readContract: async ({
-      address,
-      functionName
-    }: {
-      readonly address: string;
-      readonly functionName: string;
-    }) => {
+    readContract: async (request) => {
+      const { address, functionName } = request;
       if (functionName === "balanceOf" && getSignByBaseAddress(address) === "aries") {
         throw new Error("aries Base read unavailable");
       }
 
-      return healthy.readContract({ address, functionName });
+      return healthy.readContract(request);
     },
     readContracts: async ({
       contracts

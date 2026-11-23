@@ -1,4 +1,5 @@
 import { normalizeEvmAddress, normalizeSolanaAddress } from "./address.js";
+import { isZodiacSign } from "./validation.js";
 import { RegistryInvariantError } from "./errors.js";
 import { BASE_CHAIN_ID, ZODIACS_REGISTRY } from "./official-registry.js";
 import {
@@ -40,10 +41,8 @@ export interface RuntimeRegistryValidationResult {
   readonly errors: readonly string[];
 }
 
-const signSet = new Set<string>(ZODIAC_SIGNS);
 const elementSet = new Set<ZodiacElement>(["fire", "earth", "air", "water"]);
 const modalitySet = new Set<ZodiacModality>(["cardinal", "fixed", "mutable"]);
-const chainSet = new Set<ZodiacChain>(["solana", "base"]);
 
 export function validateZodiacsRegistrySchema(
   registry: unknown = ZODIACS_REGISTRY
@@ -160,35 +159,32 @@ function validateSupportedChains(
   chains: readonly unknown[],
   issues: RegistryInvariantIssue[]
 ): void {
-  const expected = new Set(["solana:native:SPL", `base:bridged:ERC20:${BASE_CHAIN_ID}`]);
-
-  for (const [index, chain] of chains.entries()) {
-    if (
-      !isRecord(chain) ||
-      typeof chain.chain !== "string" ||
-      typeof chain.kind !== "string" ||
-      typeof chain.tokenStandard !== "string"
-    ) {
+  const missing = new Set<ZodiacChain>(["solana", "base"]);
+  for (const [index, entry] of chains.entries()) {
+    const known = ZODIACS_REGISTRY.supportedChains.find(
+      (chain) =>
+        isRecord(entry) &&
+        chain.chain === entry.chain &&
+        chain.kind === entry.kind &&
+        chain.tokenStandard === entry.tokenStandard &&
+        ("chainId" in chain ? chain.chainId : undefined) === entry.chainId
+    );
+    if (!known || !missing.delete(known.chain)) {
       issues.push(
         issue(
           "invalid-supported-chain",
           `$.supportedChains[${index}]`,
-          "Supported chain entry is invalid."
+          "Unsupported or duplicate chain entry."
         )
       );
-      continue;
     }
-
-    const key = `${chain.chain}:${chain.kind}:${chain.tokenStandard}${chain.chainId ? `:${String(chain.chainId)}` : ""}`;
-    expected.delete(key);
   }
-
-  for (const missing of expected) {
+  for (const chain of missing) {
     issues.push(
       issue(
         "invalid-supported-chain",
         "$.supportedChains",
-        `Missing supported chain entry: ${missing}.`
+        `Missing supported chain entry: ${chain}.`
       )
     );
   }
@@ -306,7 +302,7 @@ function validateAsset(
   if (
     isRecord(asset.native) &&
     isRecord(native) &&
-    JSON.stringify(asset.native) !== JSON.stringify(native)
+    !sameNativeRepresentation(asset.native, native)
   ) {
     issues.push(
       issue(
@@ -326,6 +322,40 @@ function validateAsset(
       )
     );
   }
+}
+
+function sameNativeRepresentation(
+  left: Record<string, unknown>,
+  right: Record<string, unknown>
+): boolean {
+  if (left.bridge !== right.bridge) {
+    const a = left.bridge;
+    const b = right.bridge;
+    if (
+      !isRecord(a) ||
+      !isRecord(b) ||
+      !["status", "protocol", "sourceChain", "destinationChain", "notes"].every(
+        (key) => a[key] === b[key]
+      )
+    ) {
+      return false;
+    }
+  }
+  return [
+    "sign",
+    "chain",
+    "chainId",
+    "kind",
+    "tokenStandard",
+    "address",
+    "decimals",
+    "symbol",
+    "name",
+    "isCanonicalOrigin",
+    "isOfficialRepresentation",
+    "originChain",
+    "originAddress"
+  ].every((key) => left[key] === right[key]);
 }
 
 function validateMetadata(metadata: unknown, path: string, issues: RegistryInvariantIssue[]): void {
@@ -402,7 +432,7 @@ function validateRepresentation(
   );
 
   if (normalizedAddress) {
-    const addressKey = `${representation.chain}:${normalizedAddress.toLowerCase()}`;
+    const addressKey = `${representation.chain}:${representation.chain === "base" ? normalizedAddress.toLowerCase() : normalizedAddress}`;
     const previous = seenAddresses.get(addressKey);
 
     if (previous) {
@@ -596,10 +626,6 @@ function normalizeRepresentationAddress(
     );
     return null;
   }
-}
-
-function isZodiacSign(value: unknown): value is ZodiacSign {
-  return typeof value === "string" && signSet.has(value);
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {

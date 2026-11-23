@@ -189,6 +189,13 @@ describe("useZodiacBalance", () => {
     });
   });
 
+  it("tracks a replacement abort signal in the Base ownership hook", async () => {
+    const { useBaseZodiacsOwnership } = await import("./hooks.js");
+    const signal = new AbortController().signal;
+    useBaseZodiacsOwnership(null, null, { signal });
+    expect(mockState.latestEffectDeps).toContain(signal);
+  });
+
   it("uses stable dependency values for cross-chain ownership params", async () => {
     const connection: SolanaBalanceConnection = {
       getParsedTokenAccountsByOwner: vi.fn(async () => ({ value: [] }))

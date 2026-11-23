@@ -322,7 +322,8 @@ export function useBaseZodiacsOwnership(
       options.blockTag,
       options.includeZeroBalances,
       options.minBalance,
-      options.onPartialFailure
+      options.onPartialFailure,
+      options.signal
     ]
   );
 }

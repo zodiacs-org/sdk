@@ -228,6 +228,74 @@ describe("read-only Solana balances", () => {
     expect(ownership.heldSigns).toEqual(["cancer"]);
   });
 
+  it("does not start fallback reads after the wallet scan is cancelled", async () => {
+    const controller = new AbortController();
+    const getParsedTokenAccountsByOwner = vi.fn(async () => {
+      controller.abort();
+      return { value: [] };
+    });
+    await expect(
+      getZodiacsOwnership({ getParsedTokenAccountsByOwner }, walletAddress, {
+        signal: controller.signal
+      })
+    ).rejects.toThrow(/aborted/);
+    expect(getParsedTokenAccountsByOwner).toHaveBeenCalledOnce();
+  });
+
+  it("propagates cancellation during per-mint fallback", async () => {
+    const controller = new AbortController();
+    const connection: SolanaBalanceConnection = {
+      getParsedTokenAccountsByOwner: async (_owner, filter) => {
+        if ("programId" in filter) throw new Error("scan unavailable");
+        controller.abort();
+        return { value: [] };
+      }
+    };
+    await expect(
+      getZodiacsOwnership(connection, walletAddress, { signal: controller.signal })
+    ).rejects.toThrow(/aborted/);
+  });
+
+  it("retries a wallet scan that cannot identify a token account", async () => {
+    const read: SolanaBalanceConnection["getParsedTokenAccountsByOwner"] = async (
+      _owner,
+      filter
+    ) => {
+      if ("programId" in filter) return parsedTokenResponse("100");
+      return String(filter.mint) === getMintAddress("aries")
+        ? parsedTokenResponse("100")
+        : { value: [] };
+    };
+    const ownership = await getZodiacsOwnership(
+      { getParsedTokenAccountsByOwner: read },
+      walletAddress
+    );
+    expect(ownership.heldSigns).toEqual(["aries"]);
+    expect(ownership.confirmedAbsentSigns).not.toContain("aries");
+  });
+
+  it("rejects a per-mint response that identifies a different token", async () => {
+    const read = async () =>
+      parsedWalletTokenResponse({ mint: getMintAddress("taurus"), amount: "50" });
+    await expect(
+      getZodiacBalance({ getParsedTokenAccountsByOwner: read }, walletAddress, "aries")
+    ).resolves.toMatchObject({
+      status: "unavailable",
+      error: { code: "invalid-rpc-response" }
+    });
+  });
+
+  it("keeps malformed RPC amounts out of verified holdings", async () => {
+    const read = async () =>
+      parsedWalletTokenResponse({ mint: getMintAddress("aries"), amount: 1 as unknown as string });
+    const ownership = await getZodiacsOwnership(
+      { getParsedTokenAccountsByOwner: read },
+      walletAddress
+    );
+    expect(ownership.unavailableSigns).toEqual(["aries"]);
+    expect(ownership.confirmedAbsentSigns).not.toContain("aries");
+  });
+
   it("supports Solana partial failure throw and ignore modes", async () => {
     const getParsedTokenAccountsByOwner = vi.fn(async () =>
       parsedWalletTokenResponse({ mint: getMintAddress("aries"), amount: "not-an-amount" })

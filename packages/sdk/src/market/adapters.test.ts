@@ -152,6 +152,33 @@ describe("market adapters", () => {
     }
   });
 
+  it("distinguishes missing prices from malformed values and preserves a real zero", async () => {
+    for (const price of [true, [], {}, " ", "0xff", -1, "0", "1e-3"]) {
+      const adapters = [
+        createDexScreenerMarketAdapter({
+          fetchImpl: async () =>
+            mockResponse({ ok: true, payload: { pairs: [{ priceUsd: price }] } })
+        }),
+        createJupiterMarketAdapter({
+          fetchImpl: async () =>
+            mockResponse({ ok: true, payload: { [token.mintAddress]: { usdPrice: price } } })
+        })
+      ];
+      for (const adapter of adapters) {
+        const result = await adapter.readMarket(options);
+        if (price === "0" || price === "1e-3") {
+          expect(result.priceUsd).toBe(Number(price));
+        } else {
+          expect(result).toMatchObject({
+            status: "unavailable",
+            priceUsd: null,
+            error: { code: "invalid-response" }
+          });
+        }
+      }
+    }
+  });
+
   it("normalizes DEX Screener pair data", async () => {
     const fetchImpl = vi.fn(async () =>
       mockResponse({
